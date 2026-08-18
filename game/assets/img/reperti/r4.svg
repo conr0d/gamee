@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="Specchio di bronzo, superficie liscia">
+  <title>Specchio di bronzo</title>
+
+  <!-- VINCOLI DELL'ENIGMA S2-E1 (li impone tools/verifiche/s2_e1_classificazione.py):
+       1. il reperto non deve leggersi come ORO. La faccia è grigia da specchio
+          lucidato, cornice e manico restano bronzo: nessuna delle due tinte
+          può essere confusa con l'oro dei reperti 1 e 3;
+       2. la superficie resta LISCIA: nessuna linea incisa, nessun geroglifico,
+          né sul disco né sul manico.
+       Il bronzo parte dal marrone-cornice della palette del gioco (#7a4f2a).
+       I colori sono scritti a mano uno per uno: il file è caricato come img,
+       dove currentColor e il CSS del gioco non arrivano.
+       ATTENZIONE: questo è XML, non HTML. Due trattini di fila spezzano il
+       commento e il disco smette di comparire: il browser disegna solo fino
+       al primo errore, quindi resterebbe la cornice senza il vetro. -->
+
+  <defs>
+    <!-- cornice e manico: bronzo, luce da sinistra in alto -->
+    <linearGradient id="r4-cornice" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0"   stop-color="#a8794a"/>
+      <stop offset="0.5" stop-color="#7a4f2a"/>
+      <stop offset="1"   stop-color="#4e3119"/>
+    </linearGradient>
+
+    <linearGradient id="r4-manico" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"    stop-color="#5a3a1d"/>
+      <stop offset="0.38" stop-color="#8f5f36"/>
+      <stop offset="1"    stop-color="#4a2e16"/>
+    </linearGradient>
+
+    <!-- il vetro: metallo lucidato grigio. La radiale spostata in alto a
+         sinistra è ciò che lo fa leggere come superficie che riflette e non
+         come un cerchio pieno di grigio piatto. -->
+    <radialGradient id="r4-vetro" cx="0.34" cy="0.28" r="0.92">
+      <stop offset="0"    stop-color="#cfd6db"/>
+      <stop offset="0.42" stop-color="#929ba2"/>
+      <stop offset="1"    stop-color="#4b545b"/>
+    </radialGradient>
+
+    <!-- la faccia ritaglia i riflessi: senza, il bagliore uscirebbe dal disco -->
+    <clipPath id="r4-faccia">
+      <circle cx="32" cy="24" r="12.2"/>
+    </clipPath>
+  </defs>
+
+  <!-- manico, disegnato per primo: il disco gli va sopra e ne copre l'innesto -->
+  <path d="M28.1 39 H35.9 L34.5 53 H29.5 Z" fill="url(#r4-manico)"/>
+  <rect x="25.6" y="52.4" width="12.8" height="5.6" rx="2.2" fill="url(#r4-manico)"/>
+  <rect x="26.6" y="37.4" width="10.8" height="4.4" rx="1.8" fill="#7a4f2a"/>
+
+  <!-- cornice di bronzo, cerchio pieno -->
+  <circle cx="32" cy="24" r="15.5" fill="url(#r4-cornice)"/>
+
+  <!-- ombra dell'incasso: il disco è incastonato, non appoggiato sopra -->
+  <circle cx="32" cy="24" r="13.1" fill="none" stroke="#2c1a08"
+          stroke-width="2.2" opacity="0.38"/>
+
+  <!-- il vetro -->
+  <circle cx="32" cy="24" r="12.2" fill="url(#r4-vetro)"/>
+
+  <g clip-path="url(#r4-faccia)">
+    <!-- lama di luce obliqua: è questa che fa leggere il disco come specchio -->
+    <ellipse cx="25" cy="16" rx="10.2" ry="6.2" fill="#ffffff" opacity="0.34"
+             transform="rotate(-34 25 16)"/>
+    <ellipse cx="26.4" cy="17.8" rx="4.2" ry="2.2" fill="#ffffff" opacity="0.55"
+             transform="rotate(-34 26.4 17.8)"/>
+    <!-- ombra in basso a destra: dà volume alla superficie -->
+    <ellipse cx="39" cy="32.5" rx="10.5" ry="7.5" fill="#20262b" opacity="0.30"/>
+  </g>
+</svg>

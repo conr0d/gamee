@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Museo del Faraone</title>
+
+<!-- CSS del motore, poi un file per ogni puzzle (classi prefissate .pz-)
+     Il ?v=N vale anche qui: senza, un CSS modificato resta quello vecchio.
+
+     I puzzle non sono più elencati qui a mano: puzzles/manifest.js dice quali
+     esistono, e il piccolo script sotto scrive i <link> corrispondenti. Per
+     aggiungere un puzzle nuovo basta toccare il manifest, non questo file. -->
+<link rel="stylesheet" href="assets/css/engine.css?v=70">
+<script src="puzzles/manifest.js?v=70"></script>
+<script>
+  (window.PUZZLE_MANIFEST || []).forEach(function (nome) {
+    document.write('<link rel="stylesheet" href="puzzles/' + nome + '.css?v=70">');
+  });
+</script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- #mappa è la finestra (ritaglia); #mappa-scena è la stanza, che può essere
+       più grande della finestra e si trascina col dito. -->
+  <div id="mappa">
+    <div id="mappa-scena">
+      <div id="mappa-sfondo"></div>
+      <!-- hotspot e frecce iniettati qui a runtime -->
+    </div>
+  </div>
+  <div id="overlay-dim"></div>
+
+  <!-- I tre comandi stanno a L in basso a destra, nella zona del pollice:
+       mappa a sinistra dello zaino, bussola sopra, zaino nell'angolo. -->
+
+  <!-- MAPPA -->
+  <button id="btn-mappa" aria-label="Mappa del museo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 4 3 6.2v13.4L9 17.4l6 2.2 6-2.2V4l-6 2.2z"/>
+      <path d="M9 4v13.4M15 6.2v13.4"/>
+    </svg>
+  </button>
+
+  <!-- BUSSOLA: attiva le frecce di spostamento -->
+  <button id="btn-nav" aria-label="Spostati">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path class="bussola-ago" d="M12 18.5l7.265 2.463c.196 .077 .42 .032 .57 -.116a.548 .548 0 0 0 .134 -.572l-7.969 -17.275l-7.97 17.275c-.07 .2 -.017 .424 .135 .572c.15 .148 .374 .193 .57 .116l7.265 -2.463"/>
+    </svg>
+  </button>
+
+  <!-- ZAINO: angolo della L. Apre e chiude la catena dell'inventario. -->
+  <button id="btn-inventario" aria-label="Zaino">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5 18v-6a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3"/>
+      <path d="M10 6v-1a2 2 0 1 1 4 0v1"/>
+      <path class="zaino-falda" d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/>
+      <path d="M11 10h2"/>
+    </svg>
+  </button>
+
+  <!-- INVENTARIO: catena di cerchi (oggetti) con sopra i punti (piume).
+       Nessuna scritta: il contenuto lo disegna il motore. -->
+  <div id="pannello-inventario" role="group" aria-label="Zaino"></div>
+
+  <!-- TOAST — unico riquadro di messaggio del gioco -->
+  <div id="toast" tabindex="-1" role="dialog" aria-modal="true">
+    <div id="toast-inner">
+      <div id="toast-titolo"></div>
+      <div id="toast-testo"></div>
+      <div id="toast-bottoni"></div>
+      <!-- la piuma che fluttua in basso a destra: dice «tocca per chiudere»
+           senza scriverlo. Il disegno lo inietta il motore, per non tenere
+           una terza copia a mano del path. -->
+      <div id="toast-piuma" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- MAPPA IN SOVRAIMPRESSIONE -->
+  <div id="pannello-mappa">
+    <div id="pannello-mappa-inner">
+      <div id="mappa-contenuto">
+        <!-- src la sceglie Engine._apriMappa: gamemap1.png di norma, gamemap2.png
+             nella cripta (sF). #mappa-overlay lo riempie con nebbia (stanze non
+             ancora visitate) e segnalino, posizionati in percentuale sull'immagine. -->
+        <div id="mappa-immagine-wrap">
+          <img id="mappa-img" src="assets/img/map/gamemap1.png" alt="Pianta del museo">
+          <div id="mappa-overlay" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHERMATA ENIGMA — la cornice è del motore, il contenuto del puzzle -->
+  <div id="popup-enigma-wrap">
+    <div id="popup-enigma">
+      <button id="btn-enigma-close" aria-label="Chiudi l'enigma">✕</button>
+      <!-- AIUTO: qui la catena non si vede, quindi il conteggio va scritto -->
+      <button id="btn-enigma-aiuto" aria-label="Spendi una piuma per un indizio">
+        <span class="aiuto-parola">AIUTO</span>
+        <span class="aiuto-riga">
+          <!-- la piuma la disegna il motore: una sola copia del path, in engine.js -->
+          <span id="aiuto-piuma" aria-hidden="true"></span>
+          <span aria-hidden="true">/</span><span id="aiuto-conteggio">0</span>
+        </span>
+      </button>
+      <div id="popup-enigma-titolo"></div>
+      <div id="enigma-indizio"></div>
+      <div id="popup-enigma-body"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Ordine di caricamento. Tutti script CLASSICI: niente type="module" e
+     niente fetch(), altrimenti il gioco smette di aprirsi con un doppio clic.
+       1. il contenuto  → definisce GAME_DATA
+       2. i puzzle      → si registrano in window.Puzzles (elencati in manifest.js,
+                           già caricato in <head>: qui basta riusare l'elenco)
+       3. il motore     → legge GAME_DATA + Puzzles e avvia
+
+     Il ?v=N serve solo contro la cache: se dopo una modifica il browser
+     continua a mostrare la versione vecchia, alza il numero e ricarica. -->
+<script src="game_data.js?v=70"></script>
+<script>
+  (window.PUZZLE_MANIFEST || []).forEach(function (nome) {
+    document.write('<script src="puzzles/' + nome + '.js?v=70"><' + '/script>');
+  });
+</script>
+<script src="engine.js?v=70"></script>
+
+</body>
+</html>
+

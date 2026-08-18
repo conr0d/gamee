@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coordinate hotspot — Museo del Faraone</title>
+
+<!-- Solo il CSS del motore: i marker RIUSANO la classe .hotspot, così quello
+     che si vede qui è esattamente quello che disegnerà il gioco.
+     NIENTE engine.js: qui il motore non gira, si legge solo GAME_DATA. -->
+<link rel="stylesheet" href="../assets/css/engine.css">
+
+<style>
+  /* lo strumento non è il gioco: qui si può scorrere e stare larghi */
+  html,body{ overflow:auto; height:auto; background:#0e1015; color:var(--testo-chiaro); }
+  body{ padding:16px; font-size:14px; }
+  h1{ font-size:16px; color:var(--oro); margin:0 0 4px; letter-spacing:.02em; }
+  .co-nota{ color:rgba(242,230,201,.5); font-size:12px; margin:0 0 14px; line-height:1.55; max-width:88ch; }
+  code{ color:#c9a961; }
+
+  .co-barra{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .co-barra label{ font-size:12px; color:rgba(242,230,201,.7); }
+  select, button, input, textarea{ font-family:inherit; font-size:13px; }
+  select, input[type=text], input[type=number]{
+    padding:7px 10px; border-radius:6px; background:#1d2029; color:var(--testo-chiaro);
+    border:1px solid rgba(212,175,55,.45); min-height:44px;
+  }
+  input[type=number]{ width:88px; }
+  select:focus-visible, input:focus-visible, button:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+  .co-btn{
+    min-height:44px; padding:0 16px; border:none; border-radius:6px; cursor:pointer;
+    background:linear-gradient(180deg,#c9a961,#8a6d1f); color:#1a1408; font-weight:600;
+    transition:filter .15s ease;
+  }
+  .co-btn:hover{ filter:brightness(1.12); }
+  .co-btn.co-secondario{ background:#252932; color:var(--testo-chiaro); border:1px solid rgba(255,255,255,.2); }
+  .co-file{ color:rgba(242,230,201,.7); font-size:12px; }
+
+  /* ---------- impaginazione: palco a sinistra, pannello a destra ---------- */
+  .co-corpo{ display:flex; gap:16px; align-items:flex-start; }
+  @media (max-width:900px){ .co-corpo{ flex-direction:column; } }
+
+  /* Il palco tiene il posto della scena RIDOTTA: la scena dentro ha le misure
+     vere (es. 1218x812) ed è rimpicciolita da una scale(). Così i 44px di un
+     hotspot restano 44px veri e si vede davvero se due zone si toccano. */
+  .co-palco{ position:relative; flex:0 0 auto; }
+  #co-scena{
+    position:absolute; top:0; left:0;
+    transform-origin:top left;
+    background:#000;
+    box-shadow:0 0 0 1px rgba(212,175,55,.35);
+  }
+  #co-sfondo{ position:absolute; inset:0; background-size:cover; background-position:center; }
+  #co-scena.co-mirino{ cursor:crosshair; }
+
+  /* riquadro di ciò che si vede TUTTO INSIEME su un 375x812: non è un ritaglio,
+     la scena si trascina — serve a capire cosa sta in campo contemporaneamente */
+  #co-finestra{
+    position:absolute; top:0; left:0;
+    border:2px dashed rgba(255,255,255,.75);
+    box-shadow:0 0 0 4000px rgba(0,0,0,.42);
+    cursor:grab; z-index:3;
+  }
+  #co-finestra:active{ cursor:grabbing; }
+  #co-finestra::after{
+    content:attr(data-etichetta);
+    position:absolute; left:0; bottom:100%;
+    font-size:11px; padding:2px 6px; margin-bottom:3px;
+    background:rgba(0,0,0,.7); color:rgba(255,255,255,.8); border-radius:3px; white-space:nowrap;
+  }
+
+  /* griglia dei decimi, per riferimento a occhio */
+  #co-griglia{
+    position:absolute; inset:0; z-index:2; pointer-events:none; opacity:0;
+    transition:opacity .15s ease;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 1px, transparent 1px 10%),
+      repeating-linear-gradient(180deg, rgba(255,255,255,.28) 0 1px, transparent 1px 10%);
+  }
+  #co-scena.co-con-griglia #co-griglia{ opacity:1; }
+
+  /* il marker è un .hotspot vero, con in più il numero e lo stato selezionato */
+  .hotspot.co-marker{ z-index:4; }
+  .hotspot.co-marker.co-scelto{ box-shadow:0 0 0 3px var(--oro), 0 0 14px rgba(212,175,55,.8); }
+  .hotspot.co-marker.co-vicino{ border-color:var(--rosso-freccia); }
+
+  /* Il punto appena piazzato non è ancora un elemento: è una proposta.
+     Tratteggiato finché non lo si conferma, con le sue coordinate a vista. */
+  .hotspot.co-marker.co-provvisorio{
+    z-index:5;
+    border-style:dashed; border-color:var(--oro);
+    background:rgba(212,175,55,.18);
+    box-shadow:0 0 0 3px rgba(212,175,55,.35), 0 0 16px rgba(0,0,0,.6);
+  }
+  /* La scena è rimpicciolita da una scale(): etichetta e comandi si
+     contro-scalano, o a scena piccola diventerebbero illeggibili. */
+  .hotspot.co-marker.co-provvisorio::after{
+    content:attr(data-coord);
+    position:absolute; left:50%; top:100%;
+    transform:translate(-50%,6px) scale(var(--controscala,1));
+    transform-origin:top center;
+    font-family:Consolas,Menlo,monospace; font-size:11px; white-space:nowrap;
+    padding:2px 6px; border-radius:3px;
+    background:rgba(0,0,0,.78); color:var(--oro);
+  }
+
+  /* Conferma e annulla stanno anche QUI, attaccati al punto: è dove si sta
+     guardando quando si decide se le coordinate vanno bene. */
+  #co-flottante{
+    position:absolute; z-index:6;
+    transform:translate(-50%,34px) scale(var(--controscala,1));
+    transform-origin:top center;
+    display:flex; gap:6px;
+  }
+  #co-flottante button{
+    width:38px; height:38px; border-radius:8px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; line-height:1;
+    border:1px solid rgba(0,0,0,.5);
+    box-shadow:0 2px 8px rgba(0,0,0,.6);
+    transition:filter .15s ease;
+  }
+  #co-flottante button:hover{ filter:brightness(1.15); }
+  #co-flottante button:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+  #co-flottante .co-si{ background:linear-gradient(180deg,#c9a961,#8a6d1f); color:#1a1408; font-weight:700; }
+  #co-flottante .co-no{ background:#2b2f38; color:var(--testo-chiaro); }
+  .hotspot.co-marker .co-num{
+    position:absolute; top:-9px; right:-9px;
+    min-width:18px; height:18px; padding:0 4px;
+    border-radius:9px; background:#0e1015; border:1px solid currentColor;
+    font-size:10px; line-height:16px; text-align:center;
+  }
+  /* una zona (larghezza/altezza in %) non è un cerchio */
+  .hotspot.co-zona{ border-radius:6px; background:rgba(212,175,55,.12); }
+
+  /* ---------- pannello ---------- */
+  .co-pannello{ flex:1 1 320px; min-width:300px; display:flex; flex-direction:column; gap:12px; }
+  .co-riquadro{
+    border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:12px;
+    background:#14161c;
+  }
+  .co-riquadro h2{ font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+                   color:rgba(242,230,201,.55); margin:0 0 10px; font-weight:600; }
+  .co-campi{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .co-campi label{ font-size:12px; color:rgba(242,230,201,.7); display:flex; gap:6px; align-items:center; }
+  .co-elenco{ list-style:none; margin:0; padding:0; max-height:230px; overflow:auto; }
+  .co-elenco li{
+    display:flex; gap:8px; align-items:center; justify-content:space-between;
+    padding:8px; border-radius:6px; cursor:pointer; min-height:44px;
+    font-family:Consolas,Menlo,monospace; font-size:12px;
+  }
+  .co-elenco li:hover{ background:rgba(255,255,255,.06); }
+  .co-elenco li.co-scelto{ background:rgba(212,175,55,.16); }
+  .co-elenco .co-tag{ font-size:10px; padding:1px 5px; border-radius:3px; background:rgba(255,255,255,.12); }
+  .co-elenco .co-nuovo{ background:rgba(127,209,127,.22); color:#a8e6a8; }
+  .co-elenco .co-destra{ display:flex; gap:8px; align-items:center; flex:0 0 auto; }
+  /* la × di riga: rimuove quell'elemento senza doverlo prima selezionare */
+  .co-x{
+    width:36px; height:36px; flex:0 0 auto;
+    border-radius:6px; cursor:pointer;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.2);
+    color:var(--testo-chiaro); font-size:15px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .co-x:hover{ background:rgba(164,54,47,.35); border-color:var(--rosso-avviso); }
+
+  /* ---------- scelta del tipo da inserire ---------- */
+  .co-segmenti{ display:flex; gap:6px; flex-wrap:wrap; }
+  .co-segmenti input{ position:absolute; opacity:0; width:0; height:0; }
+  .co-segmenti label{ cursor:pointer; }
+  .co-segmenti span{
+    display:flex; align-items:center; gap:6px;
+    min-height:44px; padding:0 12px; border-radius:6px;
+    border:1px solid rgba(255,255,255,.2); background:#1d2029;
+    font-size:12.5px; color:rgba(242,230,201,.75);
+    transition:border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  .co-segmenti span svg{ width:18px; height:18px; }
+  .co-segmenti label:hover span{ border-color:rgba(212,175,55,.6); }
+  .co-segmenti input:checked + span{
+    border-color:var(--oro); background:rgba(212,175,55,.18); color:var(--testo-chiaro);
+  }
+  .co-segmenti input:focus-visible + span{ outline:3px solid var(--oro); outline-offset:2px; }
+
+  .co-azioni{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  [hidden]{ display:none !important; }
+  .co-vuoto{ color:rgba(242,230,201,.4); font-size:12px; margin:0; }
+  textarea{
+    width:100%; min-height:180px; padding:10px; border-radius:6px; resize:vertical;
+    background:#101319; color:#cfe3cf; border:1px solid rgba(255,255,255,.18);
+    font-family:Consolas,Menlo,monospace; font-size:12.5px; line-height:1.55;
+    user-select:text;
+  }
+  .co-misure{ font-family:Consolas,Menlo,monospace; font-size:12px; color:rgba(242,230,201,.65);
+              line-height:1.7; margin:0; }
+  .co-misure b{ color:var(--oro); font-weight:600; }
+  .co-avviso{ color:#e79a94; }
+
+  @media (prefers-reduced-motion: reduce){
+    .co-btn, #co-griglia{ transition-duration:.01ms; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Coordinate hotspot</h1>
+<p class="co-nota">
+  Scegli che cosa inserire, clicca sulla scena, aggiusta e <b>conferma</b>: solo allora
+  l'elemento entra nell'elenco e nel blocco pronto per <code>game_data.js</code>.
+  Le <code>posX</code>/<code>posY</code> sono percentuali della <b>stanza</b> — cioè di
+  <code>#mappa-scena</code>, il livello che il motore dimensiona col <code>pan</code> e che si
+  trascina col dito — non della finestra. Per una stanza con <code>pan: { rapporto }</code> la
+  stanza <em>è</em> l'immagine, quindi sono direttamente coordinate dell'immagine.
+  Sigle: <b>I</b> item, <b>F</b> piume, <b>T</b> toast, <b>E</b> enigmi — da cui gli id
+  <code>s1-F1</code>, <code>s1-E2</code> e così via.
+  Nulla viene salvato: lo strumento produce testo da incollare a mano.
+</p>
+
+<div class="co-barra">
+  <label for="co-stanza">Stanza</label>
+  <select id="co-stanza"></select>
+
+  <label class="co-file">
+    <span>oppure un'immagine non ancora cablata:</span>
+    <input type="file" id="co-immagine" accept="image/*">
+  </label>
+
+  <button class="co-btn co-secondario" id="co-griglia-btn" aria-pressed="false">Griglia 10%</button>
+</div>
+
+<div class="co-corpo">
+
+  <div class="co-palco" id="co-palco">
+    <div id="co-scena" class="co-mirino">
+      <div id="co-sfondo"></div>
+      <div id="co-griglia" aria-hidden="true"></div>
+      <div id="co-finestra" data-etichetta="finestra 375×812" role="img"
+           aria-label="Riquadro di ciò che si vede tutto insieme su uno schermo 375 per 812"></div>
+      <!-- marker iniettati qui -->
+    </div>
+  </div>
+
+  <div class="co-pannello">
+
+    <div class="co-riquadro">
+      <h2>Misure</h2>
+      <p class="co-misure" id="co-misure"></p>
+    </div>
+
+    <div class="co-riquadro">
+      <h2>Che cosa inserire</h2>
+      <div class="co-segmenti" id="co-segmenti" role="radiogroup" aria-label="Tipo del prossimo elemento">
+        <!-- riempito da JS: le icone sono le stesse che disegna il motore -->
+      </div>
+      <p class="co-misure" id="co-suggerimento" style="margin-top:10px"></p>
+    </div>
+
+    <div class="co-riquadro">
+      <h2 id="co-titolo-editor">Elemento selezionato</h2>
+      <div class="co-campi" id="co-campi">
+        <label>id <input type="text" id="co-id" size="12"></label>
+        <label>tipo
+          <select id="co-tipo">
+            <option value="oggetto">I · item</option>
+            <option value="piuma">F · piuma</option>
+            <option value="testo">T · toast</option>
+            <option value="enigma">E · enigma</option>
+          </select>
+        </label>
+        <label>posX <input type="number" id="co-x" step="0.1" min="0" max="100"></label>
+        <label>posY <input type="number" id="co-y" step="0.1" min="0" max="100"></label>
+        <label>largh. <input type="number" id="co-w" step="0.1" min="0" max="100" placeholder="—"></label>
+        <label>alt. <input type="number" id="co-h" step="0.1" min="0" max="100" placeholder="—"></label>
+      </div>
+      <div class="co-azioni">
+        <button class="co-btn" id="co-conferma">Conferma e aggiungi</button>
+        <button class="co-btn co-secondario" id="co-annulla">Annulla</button>
+        <button class="co-btn co-secondario" id="co-rimuovi">Rimuovi</button>
+      </div>
+    </div>
+
+    <div class="co-riquadro">
+      <h2>Punti della stanza</h2>
+      <ul class="co-elenco" id="co-elenco"></ul>
+      <p class="co-vuoto" id="co-elenco-vuoto">Clicca sulla scena per piazzare il primo punto.</p>
+    </div>
+
+    <div class="co-riquadro">
+      <h2>Da incollare in game_data.js</h2>
+      <textarea id="co-out" readonly spellcheck="false" aria-label="Codice da incollare"></textarea>
+      <div class="co-barra" style="margin:10px 0 0">
+        <button class="co-btn" id="co-copia">Copia</button>
+        <span class="co-misure" id="co-esito-copia" role="status"></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Il contenuto del gioco, letto e mai modificato. Script classico: lo
+     strumento si apre a doppio clic su file:// come tutto il resto. -->
+<script src="../game_data.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // La finestra di riferimento è il bersaglio dichiarato nel progetto: uno
+  // schermo 375x812. Le percentuali non ne dipendono, ma le misure in pixel
+  // e il fattore di pan sì, quindi il numero sta scritto una volta sola.
+  var FIN_W = 375, FIN_H = 812;
+
+  var DATI = window.GAME_DATA;
+  var scenaEl   = document.getElementById('co-scena');
+  var palcoEl   = document.getElementById('co-palco');
+  var sfondoEl  = document.getElementById('co-sfondo');
+  var finestraEl= document.getElementById('co-finestra');
+  var outEl     = document.getElementById('co-out');
+
+  var TIPI = ['oggetto', 'piuma', 'testo', 'enigma'];
+
+  // Le sigle con cui si parla degli elementi e con cui si costruiscono gli id:
+  // F le piume, T i toast (il tipo 'testo' del motore apre un toast),
+  // E gli enigmi, I gli item. Un id diventa così s1-F1, s1-T2, s1-E1.
+  var SIGLA = { oggetto: 'I', piuma: 'F', testo: 'T', enigma: 'E' };
+  var NOME  = { oggetto: 'item', piuma: 'piuma', testo: 'toast', enigma: 'enigma' };
+
+  var stato = {
+    stanzaId: null,
+    stanza: null,
+    immagineFile: null,   // {url, w, h} quando arriva da <input type=file>
+    fx: 1, fy: 1,         // fattori di pan, stessa formula del motore
+    W: FIN_W, H: FIN_H,   // misure vere della scena, in px
+    scala: 1,
+    punti: [],            // gli elementi confermati: solo questi finiscono nell'output
+    scelto: -1,
+    tipoNuovo: 'oggetto', // che cosa nascerà dal prossimo clic sulla scena
+    provvisorio: null     // il punto piazzato ma non ancora confermato
+  };
+
+  // Un solo punto per volta è in modifica: o la proposta non confermata, o
+  // l'elemento selezionato nell'elenco. Non possono esserlo entrambi.
+  function inModifica() {
+    return stato.provvisorio || stato.punti[stato.scelto] || null;
+  }
+
+  /* ---------------- icone: le stesse forme del motore ---------------- */
+
+  function icona(tipo) {
+    var apri = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"' +
+               ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+    if (tipo === 'piuma') return apri +
+      '<path d="M4.5 20c-.4-6 2.6-12.2 8.6-14.4 3-1.1 5.6-.9 6.6.2 1 1.1.4 4.2-1.4 7.2C16 16.7 12 19.2 7.6 19.6z"/>' +
+      '<path d="M4.5 20 14.6 9.4"/><path d="M9.4 15.6h4.1M11.6 12.6h3.7"/></svg>';
+    if (tipo === 'oggetto') return apri +
+      '<path d="M7.6 8h8.8l1.9 11.1A1.7 1.7 0 0 1 16.6 21H7.4a1.7 1.7 0 0 1-1.7-1.9z"/>' +
+      '<path d="M9.5 8V6.3A2.5 2.5 0 0 1 12 3.8a2.5 2.5 0 0 1 2.5 2.5V8"/></svg>';
+    if (tipo === 'enigma') return apri +
+      '<circle cx="12" cy="12" r="9"/>' +
+      '<path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2-2.6 3.6"/><path d="M12 17.2v.01"/></svg>';
+    return apri +
+      '<path d="M20 12.2a6.8 6.8 0 0 1-6.8 6.8H9.6L5.4 21.6V17.6A6.8 6.8 0 0 1 8.6 5.4h4.6a6.8 6.8 0 0 1 6.8 6.8z"/>' +
+      '<path d="M9.4 11.3h6M9.4 14.2h3.6"/></svg>';
+  }
+
+  /* ---------------- geometria: la formula del motore, ripetuta ----------------
+     _panStanza() decide le misure della scena così; qui si rifà identica con la
+     finestra di riferimento al posto di quella vera. Se un giorno cambia là,
+     va cambiata anche qui: è l'unico punto di contatto fra i due file. */
+
+  function misuraScena(stanza) {
+    var p = (stanza && stanza.pan) ||
+            (DATI && DATI.configurazione && DATI.configurazione.pan) || { x: 1, y: 1 };
+    var fx, fy;
+    if (p.rapporto) {
+      var r = parseFloat(p.rapporto);
+      if (FIN_H * r >= FIN_W) { fx = (FIN_H * r) / FIN_W; fy = 1; }
+      else                    { fx = 1; fy = (FIN_W / r) / FIN_H; }
+    } else {
+      fx = Math.max(1, parseFloat(p.x) || 1);
+      fy = Math.max(1, parseFloat(p.y) || 1);
+    }
+    return { fx: fx, fy: fy, W: Math.round(fx * FIN_W), H: Math.round(fy * FIN_H) };
+  }
+
+  // La scena ha le misure vere ed è rimpicciolita da una scale(): il palco
+  // tiene il posto ridotto, così il resto della pagina non se ne accorge.
+  function adattaScala() {
+    var pagina = document.documentElement.clientWidth;
+    // sopra i 900px il pannello sta di fianco e si prende la sua colonna;
+    // sotto, i due blocchi sono impilati e il palco ha tutta la larghezza
+    var largo = Math.max(280, pagina - 32 - (pagina > 900 ? 376 : 0));
+    var alto  = Math.max(320, window.innerHeight - 210);
+    stato.scala = Math.min(largo / stato.W, alto / stato.H, 1);
+
+    scenaEl.style.width  = stato.W + 'px';
+    scenaEl.style.height = stato.H + 'px';
+    scenaEl.style.transform = 'scale(' + stato.scala + ')';
+    scenaEl.style.setProperty('--controscala', 1 / stato.scala);
+    palcoEl.style.width  = (stato.W * stato.scala) + 'px';
+    palcoEl.style.height = (stato.H * stato.scala) + 'px';
+  }
+
+  /* ---------------- caricamento di una stanza ---------------- */
+
+  function caricaStanza(id) {
+    var stanza = DATI.stanze[id];
+    stato.stanzaId = id;
+    stato.stanza = stanza;
+    stato.immagineFile = null;
+    stato.provvisorio = null;
+
+    var m = misuraScena(stanza);
+    stato.fx = m.fx; stato.fy = m.fy; stato.W = m.W; stato.H = m.H;
+
+    sfondoEl.style.background = stanza.immagine
+      ? 'url("../' + stanza.immagine + '") center / cover no-repeat'
+      : stanza.coloreSfondo;
+
+    // gli hotspot già scritti nei dati diventano punti modificabili
+    stato.punti = (stanza.hotspot || []).map(function (hs) {
+      return {
+        id: hs.id, tipo: hs.tipo,
+        posX: +hs.posX, posY: +hs.posY,
+        larghezza: hs.larghezza, altezza: hs.altezza,
+        nuovo: false, mosso: false,
+        posXiniziale: +hs.posX, posYiniziale: +hs.posY
+      };
+    });
+    stato.scelto = -1;
+
+    adattaScala();
+    centraFinestra();
+    disegna();
+  }
+
+  // un'immagine non ancora cablata: il rapporto lo detta lei
+  function caricaFile(file) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      stato.immagineFile = { url: url, w: img.naturalWidth, h: img.naturalHeight, nome: file.name };
+      var r = img.naturalWidth / img.naturalHeight;
+      var m = misuraScena({ pan: { rapporto: r } });
+      stato.fx = m.fx; stato.fy = m.fy; stato.W = m.W; stato.H = m.H;
+      sfondoEl.style.background = 'url("' + url + '") center / cover no-repeat';
+      stato.punti = [];
+      stato.scelto = -1;
+      stato.provvisorio = null;
+      adattaScala();
+      centraFinestra();
+      disegna();
+    };
+    img.src = url;
+  }
+
+  /* ---------------- finestra di riferimento ---------------- */
+
+  function centraFinestra() {
+    finestraEl.style.width  = FIN_W + 'px';
+    finestraEl.style.height = FIN_H + 'px';
+    // il motore entra in stanza mettendosi al centro: stessa inquadratura
+    posizionaFinestra((stato.W - FIN_W) / 2, (stato.H - FIN_H) / 2);
+  }
+
+  function posizionaFinestra(x, y) {
+    x = Math.min(Math.max(0, x), Math.max(0, stato.W - FIN_W));
+    y = Math.min(Math.max(0, y), Math.max(0, stato.H - FIN_H));
+    finestraEl.style.left = x + 'px';
+    finestraEl.style.top  = y + 'px';
+  }
+
+  /* ---------------- disegno ---------------- */
+
+  function disegna() {
+    scenaEl.querySelectorAll('.co-marker').forEach(function (el) { el.remove(); });
+    var flot = document.getElementById('co-flottante');
+    if (flot) flot.remove();
+
+    // la proposta partecipa al controllo delle distanze: si deve vedere PRIMA
+    // di confermare se finisce addosso a un elemento già piazzato
+    var tutti = stato.punti.concat(stato.provvisorio ? [stato.provvisorio] : []);
+    var vicini = coppieVicine(tutti);
+
+    tutti.forEach(function (p, i) {
+      var proposta = stato.provvisorio && i === stato.punti.length;
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'hotspot co-marker tipo-' + p.tipo +
+                     (proposta ? ' co-provvisorio' : (i === stato.scelto ? ' co-scelto' : '')) +
+                     (vicini.indexOf(i) >= 0 ? ' co-vicino' : '') +
+                     (p.larghezza || p.altezza ? ' co-zona' : '');
+      el.style.left = p.posX + '%';
+      el.style.top  = p.posY + '%';
+      if (p.larghezza) el.style.width  = p.larghezza + '%';
+      if (p.altezza)   el.style.height = p.altezza + '%';
+      el.innerHTML = icona(p.tipo) +
+        (proposta ? '' : '<span class="co-num">' + SIGLA[p.tipo] + '</span>');
+      if (proposta) {
+        el.id = 'co-marker-proposta';
+        el.dataset.coord = arr(p.posX) + ' / ' + arr(p.posY);
+      }
+      el.setAttribute('aria-label', (proposta ? 'Da confermare: ' : '') + p.id + ', ' +
+                      NOME[p.tipo] + ', posX ' + arr(p.posX) + ', posY ' + arr(p.posY));
+      trascina(el, proposta ? -1 : i);
+      scenaEl.appendChild(el);
+
+      if (proposta) scenaEl.appendChild(barraConferma(p));
+    });
+
+    aggiornaElenco();
+    aggiornaCampi();
+    aggiornaMisure();
+    aggiornaOutput();
+  }
+
+  // I due comandi attaccati alla proposta. Sono fuori dal marker (un bottone
+  // dentro un bottone non è markup valido) ma seguono le sue coordinate.
+  function barraConferma(p) {
+    var box = document.createElement('div');
+    box.id = 'co-flottante';
+    box.style.left = p.posX + '%';
+    box.style.top  = p.posY + '%';
+    box.innerHTML =
+      '<button type="button" class="co-si" aria-label="Conferma le coordinate e aggiungi">✓</button>' +
+      '<button type="button" class="co-no" aria-label="Annulla">✕</button>';
+    box.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+    box.querySelector('.co-si').addEventListener('click', conferma);
+    box.querySelector('.co-no').addEventListener('click', annulla);
+    return box;
+  }
+
+  // due target da 44px devono stare a più di 52px l'uno dall'altro (44 + 8 di
+  // spaziatura minima): sotto quella soglia il marker si colora di rosso
+  function coppieVicine(elenco) {
+    var fuori = [];
+    for (var i = 0; i < elenco.length; i++) {
+      for (var j = i + 1; j < elenco.length; j++) {
+        var a = elenco[i], b = elenco[j];
+        var dx = (a.posX - b.posX) / 100 * stato.W;
+        var dy = (a.posY - b.posY) / 100 * stato.H;
+        if (Math.sqrt(dx * dx + dy * dy) < 52) {
+          if (fuori.indexOf(i) < 0) fuori.push(i);
+          if (fuori.indexOf(j) < 0) fuori.push(j);
+        }
+      }
+    }
+    return fuori;
+  }
+
+  function aggiornaElenco() {
+    var ul = document.getElementById('co-elenco');
+    ul.innerHTML = '';
+    document.getElementById('co-elenco-vuoto').style.display = stato.punti.length ? 'none' : 'block';
+    stato.punti.forEach(function (p, i) {
+      var li = document.createElement('li');
+      li.className = (i === stato.scelto && !stato.provvisorio ? 'co-scelto' : '');
+      li.innerHTML = '<span>' + (i + 1) + '. ' + p.id + ' &nbsp;<span style="opacity:.6">' +
+                     arr(p.posX) + ' / ' + arr(p.posY) + '</span></span>' +
+                     '<span class="co-destra">' +
+                     '<span class="co-tag">' + SIGLA[p.tipo] + '</span>' +
+                     '<span class="co-tag' + (p.nuovo ? ' co-nuovo' : '') + '">' +
+                     (p.nuovo ? 'nuovo' : (p.mosso ? 'spostato' : NOME[p.tipo])) + '</span>' +
+                     '<button type="button" class="co-x" aria-label="Rimuovi ' + p.id + '">✕</button>' +
+                     '</span>';
+      li.addEventListener('click', function () { seleziona(i); });
+      li.querySelector('.co-x').addEventListener('click', function (ev) {
+        ev.stopPropagation();          // la × rimuove, non seleziona
+        rimuovi(i);
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  function aggiornaCampi() {
+    var p = inModifica();
+    var proposta = !!stato.provvisorio;
+
+    ['co-id','co-tipo','co-x','co-y','co-w','co-h'].forEach(function (id) {
+      document.getElementById(id).disabled = !p;
+    });
+    document.getElementById('co-id').value   = p ? p.id : '';
+    document.getElementById('co-tipo').value = p ? p.tipo : stato.tipoNuovo;
+    document.getElementById('co-x').value    = p ? arr(p.posX) : '';
+    document.getElementById('co-y').value    = p ? arr(p.posY) : '';
+    document.getElementById('co-w').value    = p && p.larghezza ? p.larghezza : '';
+    document.getElementById('co-h').value    = p && p.altezza   ? p.altezza   : '';
+
+    // Conferma/Annulla valgono per la proposta; Rimuovi per ciò che è già stato
+    // aggiunto. Non compaiono mai insieme: il pulsante visibile dice da solo
+    // in che stato ci si trova.
+    document.getElementById('co-conferma').hidden = !proposta;
+    document.getElementById('co-annulla').hidden  = !proposta;
+    document.getElementById('co-rimuovi').hidden  = proposta || !p;
+
+    document.getElementById('co-titolo-editor').textContent =
+      proposta ? 'Da confermare' : (p ? 'Elemento selezionato' : 'Nessun elemento selezionato');
+
+    document.getElementById('co-suggerimento').textContent = proposta
+      ? 'Trascinalo o usa le frecce (0.1, con Maiusc 1). Poi il ✓ sotto il punto, o Invio. Esc annulla.'
+      : 'Scegli il tipo, poi clicca sulla scena: il punto resta tratteggiato finché non premi il ✓.';
+  }
+
+  /* ---------------- aggiungere, confermare, rimuovere ---------------- */
+
+  function seleziona(i) {
+    stato.provvisorio = null;   // la proposta non confermata si abbandona
+    stato.scelto = i;
+    disegna();
+  }
+
+  function conferma() {
+    if (!stato.provvisorio) return;
+    stato.punti.push(stato.provvisorio);
+    stato.provvisorio = null;
+    stato.scelto = stato.punti.length - 1;
+    disegna();
+  }
+
+  function annulla() {
+    if (!stato.provvisorio) return;
+    stato.provvisorio = null;
+    stato.scelto = -1;
+    disegna();
+  }
+
+  function rimuovi(i) {
+    if (i < 0 || i >= stato.punti.length) return;
+    stato.punti.splice(i, 1);
+    if (stato.scelto === i) stato.scelto = -1;
+    else if (stato.scelto > i) stato.scelto--;
+    disegna();
+  }
+
+  function aggiornaMisure() {
+    var m = document.getElementById('co-misure');
+    var righe = [];
+    righe.push('finestra di riferimento <b>' + FIN_W + '×' + FIN_H + '</b>');
+    righe.push('stanza <b>' + stato.W + '×' + stato.H + '</b> px' +
+               ' (pan ' + arr(stato.fx) + '× per ' + arr(stato.fy) + '×)');
+    righe.push('in campo insieme: <b>' + (100 / stato.fx).toFixed(1) + '%</b> della larghezza, <b>' +
+               (100 / stato.fy).toFixed(1) + '%</b> dell\'altezza');
+    righe.push('mostrata al <b>' + Math.round(stato.scala * 100) + '%</b>');
+    if (stato.immagineFile) {
+      var f = stato.immagineFile;
+      righe.push('<b>' + f.nome + '</b> è ' + f.w + '×' + f.h + ' → scrivi ' +
+                 '<b>pan: { rapporto: ' + arr(f.w / f.h) + ' }</b>');
+    } else if (stato.stanza && stato.stanza.immagine && !(stato.stanza.pan && stato.stanza.pan.rapporto)) {
+      righe.push('<span class="co-avviso">questa stanza ha un\'immagine ma nessun ' +
+                 '<b>pan.rapporto</b>: il motore la ritaglia con cover, e le coordinate ' +
+                 'qui sotto non corrisponderanno.</span>');
+    }
+    m.innerHTML = righe.join('<br>');
+  }
+
+  /* ---------------- interazione sulla scena ---------------- */
+
+  function percentualiDa(ev) {
+    var r = scenaEl.getBoundingClientRect();   // la scale() è già dentro il rect
+    return {
+      x: Math.min(100, Math.max(0, (ev.clientX - r.left) / r.width  * 100)),
+      y: Math.min(100, Math.max(0, (ev.clientY - r.top)  / r.height * 100))
+    };
+  }
+
+  var mosso = false;
+
+  // La cattura del puntatore è un di più: tiene il trascinamento agganciato
+  // anche se il dito esce dall'elemento. Se fallisce, il trascinamento deve
+  // comunque partire — quindi non può stare sulla strada dei listener.
+  function cattura(el, ev) {
+    try { el.setPointerCapture(ev.pointerId); } catch (e) { /* si trascina lo stesso */ }
+  }
+
+  // i < 0 significa «la proposta non ancora confermata»
+  function trascina(el, i) {
+    function punto() { return i < 0 ? stato.provvisorio : stato.punti[i]; }
+
+    el.addEventListener('pointerdown', function (ev) {
+      ev.stopPropagation();
+      // afferrare un elemento già piazzato abbandona la proposta in sospeso:
+      // il nodo se ne va subito, senza aspettare il ridisegno di fine gesto
+      if (i >= 0 && stato.provvisorio) {
+        stato.provvisorio = null;
+        var fantasma = document.getElementById('co-marker-proposta');
+        if (fantasma) fantasma.remove();
+      }
+      if (i >= 0) stato.scelto = i;
+      mosso = false;
+      cattura(el, ev);
+
+      function onMove(e) {
+        var p = punto(); if (!p) return;
+        mosso = true;
+        var q = percentualiDa(e);
+        p.posX = +q.x.toFixed(1);
+        p.posY = +q.y.toFixed(1);
+        segnaMosso(p);
+        el.style.left = p.posX + '%';
+        el.style.top  = p.posY + '%';
+        if (i < 0) {
+          el.dataset.coord = arr(p.posX) + ' / ' + arr(p.posY);
+          var barra = document.getElementById('co-flottante');
+          if (barra) { barra.style.left = p.posX + '%'; barra.style.top = p.posY + '%'; }
+        }
+      }
+      function onUp() {
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        disegna();
+      }
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+    });
+
+    el.addEventListener('keydown', function (ev) {
+      var p = punto(); if (!p) return;
+      // Invio ed Esc non stanno qui: li gestisce il listener sul documento,
+      // così funzionano anche mentre si scrive nei campi numerici
+      var passo = ev.shiftKey ? 1 : 0.1, usato = true;
+      if (ev.key === 'ArrowLeft')       p.posX = Math.max(0, p.posX - passo);
+      else if (ev.key === 'ArrowRight') p.posX = Math.min(100, p.posX + passo);
+      else if (ev.key === 'ArrowUp')    p.posY = Math.max(0, p.posY - passo);
+      else if (ev.key === 'ArrowDown')  p.posY = Math.min(100, p.posY + passo);
+      else usato = false;
+      if (!usato) return;
+      ev.preventDefault();
+      p.posX = +p.posX.toFixed(1); p.posY = +p.posY.toFixed(1);
+      segnaMosso(p);
+      if (i >= 0) stato.scelto = i;
+      disegna();
+      var nuovo = i < 0 ? document.getElementById('co-marker-proposta')
+                        : scenaEl.querySelectorAll('.co-marker')[i];
+      if (nuovo) nuovo.focus();
+    });
+  }
+
+  function segnaMosso(p) {
+    if (!p.nuovo && (p.posX !== p.posXiniziale || p.posY !== p.posYiniziale)) p.mosso = true;
+  }
+
+  // Un clic sulla scena NON aggiunge niente: propone. L'elemento nasce solo
+  // con la conferma, così un tocco andato storto non sporca l'elenco.
+  scenaEl.addEventListener('pointerdown', function (ev) {
+    if (ev.target.closest('#co-finestra')) return;
+    if (mosso) { mosso = false; return; }
+    var q = percentualiDa(ev);
+    if (stato.provvisorio) {
+      // c'è già una proposta in sospeso: il clic la sposta, non ne apre un'altra
+      stato.provvisorio.posX = +q.x.toFixed(1);
+      stato.provvisorio.posY = +q.y.toFixed(1);
+    } else {
+      stato.provvisorio = {
+        id: idLibero(stato.tipoNuovo),
+        tipo: stato.tipoNuovo,
+        posX: +q.x.toFixed(1),
+        posY: +q.y.toFixed(1),
+        nuovo: true, mosso: false
+      };
+    }
+    stato.scelto = -1;
+    disegna();
+    var m = document.getElementById('co-marker-proposta');
+    if (m) m.focus();          // Invio conferma, Esc annulla, frecce rifiniscono
+  });
+
+  // la finestra di riferimento si sposta per capire cosa sta in campo insieme
+  finestraEl.addEventListener('pointerdown', function (ev) {
+    ev.stopPropagation();
+    cattura(finestraEl, ev);
+    var r = scenaEl.getBoundingClientRect();
+    var partenzaX = parseFloat(finestraEl.style.left) || 0;
+    var partenzaY = parseFloat(finestraEl.style.top) || 0;
+    var ox = ev.clientX, oy = ev.clientY;
+    function onMove(e) {
+      posizionaFinestra(
+        partenzaX + (e.clientX - ox) / (r.width  / stato.W),
+        partenzaY + (e.clientY - oy) / (r.height / stato.H)
+      );
+    }
+    function onUp() {
+      finestraEl.removeEventListener('pointermove', onMove);
+      finestraEl.removeEventListener('pointerup', onUp);
+    }
+    finestraEl.addEventListener('pointermove', onMove);
+    finestraEl.addEventListener('pointerup', onUp);
+  });
+
+  /* ---------------- id ---------------- */
+
+  // s1-F1, s1-T2, s1-E1 … : sigla della stanza, sigla del tipo, primo numero
+  // libero fra quelli di quel tipo in quella stanza.
+  function idLibero(tipo) {
+    var base = (stato.stanzaId || 'sX') + '-' + (SIGLA[tipo] || 'X');
+    var presi = stato.punti.map(function (p) { return p.id; });
+    var n = 1;
+    while (presi.indexOf(base + n) >= 0) n++;
+    return base + n;
+  }
+
+  /* ---------------- testo da incollare ---------------- */
+
+  function arr(n) { return (Math.round(n * 10) / 10).toString(); }
+
+  function stub(p) {
+    var testa = '{ id: \'' + p.id + '\', tipo: \'' + p.tipo + '\', posX: ' + arr(p.posX) +
+                ', posY: ' + arr(p.posY) +
+                (p.larghezza ? ', larghezza: ' + arr(p.larghezza) : '') +
+                (p.altezza   ? ', altezza: '   + arr(p.altezza)   : '');
+    if (p.tipo === 'oggetto') return testa + ',\n' +
+      '  nome: \'\',\n' +
+      '  descrizione: \'\',\n' +
+      '  utile: true },';
+    if (p.tipo === 'piuma') return testa + ',\n' +
+      '  nome: \'Piuma d’Aiuto\',\n' +
+      '  descrizione: \'\' },';
+    if (p.tipo === 'testo') return testa + ',\n' +
+      '  testo: \'\' },';
+    // I parametri sono quelli che il puzzle dichiarato sa leggere: `segnaposto`
+    // vuole `testo` (puzzles/puzzle_segnaposto.js), non domanda/testoCorretto.
+    // Cambiando `puzzle` vanno cambiati anche questi.
+    return testa + ',\n' +
+      '  nome: \'\',\n' +
+      '  teaser: \'\',\n' +
+      '  indizio: \'\',            // un solo indizio, si paga con una piuma\n' +
+      '  bloccatoDa: null,\n' +
+      '  ricompensa: null,\n' +
+      '  puzzle: \'segnaposto\',   // niente enigma senza tools/verifiche/X.py\n' +
+      '  parametri: { testo: \'\' } },';
+  }
+
+  function aggiornaOutput() {
+    var righe = [];
+    var nuovi  = stato.punti.filter(function (p) { return p.nuovo; });
+    var mossi  = stato.punti.filter(function (p) { return !p.nuovo && p.mosso; });
+
+    if (stato.immagineFile) {
+      righe.push('// ' + stato.immagineFile.nome + ' è ' + stato.immagineFile.w + '×' +
+                 stato.immagineFile.h);
+      righe.push('pan: { rapporto: ' + arr(stato.immagineFile.w / stato.immagineFile.h) + ' },');
+      righe.push('');
+    }
+
+    if (nuovi.length) {
+      righe.push('/* ' + (stato.stanzaId || 'stanza') + ' — da aggiungere dentro hotspot: [ … ] */');
+      nuovi.forEach(function (p) { righe.push(stub(p)); });
+    }
+
+    if (mossi.length) {
+      if (righe.length) righe.push('');
+      righe.push('/* già presenti: aggiorna solo posX/posY */');
+      mossi.forEach(function (p) {
+        righe.push('// ' + p.id + '  →  posX: ' + arr(p.posX) + ', posY: ' + arr(p.posY) +
+                   '   (era ' + arr(p.posXiniziale) + ', ' + arr(p.posYiniziale) + ')');
+      });
+    }
+
+    if (!righe.length) righe.push('// nessun punto nuovo o spostato');
+    outEl.value = righe.join('\n');
+  }
+
+  /* ---------------- comandi ---------------- */
+
+  var sel = document.getElementById('co-stanza');
+  Object.keys(DATI.stanze).forEach(function (id) {
+    var o = document.createElement('option');
+    o.value = id;
+    o.textContent = id + ' · ' + (DATI.stanze[id].nomeVisibile || '');
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', function () { caricaStanza(sel.value); });
+
+  document.getElementById('co-immagine').addEventListener('change', function (ev) {
+    if (ev.target.files && ev.target.files[0]) caricaFile(ev.target.files[0]);
+  });
+
+  document.getElementById('co-griglia-btn').addEventListener('click', function () {
+    var acceso = scenaEl.classList.toggle('co-con-griglia');
+    this.setAttribute('aria-pressed', acceso ? 'true' : 'false');
+  });
+
+  // Selettore del tipo da inserire: decide che cosa nascerà dal prossimo clic
+  // sulla scena. È cosa diversa dal `tipo` nell'editor, che cambia un elemento
+  // che esiste già.
+  (function costruisciSegmenti() {
+    var box = document.getElementById('co-segmenti');
+    TIPI.forEach(function (t) {
+      var lab = document.createElement('label');
+      lab.innerHTML = '<input type="radio" name="co-nuovo-tipo" value="' + t + '"' +
+                      (t === stato.tipoNuovo ? ' checked' : '') + '>' +
+                      '<span>' + icona(t) + '<b>' + SIGLA[t] + '</b> ' + NOME[t] + '</span>';
+      lab.querySelector('input').addEventListener('change', function () {
+        stato.tipoNuovo = t;
+        // se una proposta è ancora in sospeso, cambia tipo insieme al selettore
+        if (stato.provvisorio) {
+          stato.provvisorio.tipo = t;
+          stato.provvisorio.id = idLibero(t);
+          disegna();
+        } else {
+          aggiornaCampi();
+        }
+      });
+      box.appendChild(lab);
+    });
+  })();
+
+  document.getElementById('co-id').addEventListener('input', function () {
+    var p = inModifica(); if (!p) return;
+    p.id = this.value.trim(); aggiornaElenco(); aggiornaOutput();
+  });
+  document.getElementById('co-tipo').addEventListener('change', function () {
+    var p = inModifica(); if (!p) return;
+    p.tipo = this.value;
+    if (p.nuovo) p.id = idLibero(p.tipo);
+    disegna();
+  });
+  [['co-x','posX'],['co-y','posY'],['co-w','larghezza'],['co-h','altezza']].forEach(function (c) {
+    document.getElementById(c[0]).addEventListener('input', function () {
+      var p = inModifica(); if (!p) return;
+      var v = this.value === '' ? null : parseFloat(this.value);
+      p[c[1]] = (v === null || isNaN(v)) ? (c[1] === 'posX' || c[1] === 'posY' ? p[c[1]] : null) : v;
+      segnaMosso(p);
+      disegna();
+    });
+  });
+
+  document.getElementById('co-conferma').addEventListener('click', conferma);
+  document.getElementById('co-annulla').addEventListener('click', annulla);
+  document.getElementById('co-rimuovi').addEventListener('click', function () {
+    rimuovi(stato.scelto);
+  });
+
+  // Invio e Esc valgono ovunque, non solo col marker a fuoco: durante la
+  // rifinitura si sta spesso scrivendo nei campi numerici.
+  document.addEventListener('keydown', function (ev) {
+    if (!stato.provvisorio) return;
+    if (ev.target.tagName === 'TEXTAREA') return;
+    if (ev.key === 'Enter')  { ev.preventDefault(); conferma(); }
+    if (ev.key === 'Escape') { ev.preventDefault(); annulla(); }
+  });
+
+  document.getElementById('co-copia').addEventListener('click', function () {
+    var esito = document.getElementById('co-esito-copia');
+    outEl.removeAttribute('readonly');
+    outEl.select();
+    var fatto = false;
+    try { fatto = document.execCommand('copy'); } catch (e) { fatto = false; }
+    outEl.setAttribute('readonly', '');
+    // su file:// navigator.clipboard non esiste: il fallback sopra è la via
+    // normale, non l'eccezione
+    esito.textContent = fatto ? 'copiato' : 'selezionato: premi Ctrl+C';
+    setTimeout(function () { esito.textContent = ''; }, 2600);
+  });
+
+  window.addEventListener('resize', function () { adattaScala(); aggiornaMisure(); });
+
+  /* ---------------- avvio ---------------- */
+
+  if (!DATI || !DATI.stanze) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<p class="co-avviso">GAME_DATA non caricato: controlla che ../game_data.js finisca ' +
+      'con <code>window.GAME_DATA = GAME_DATA;</code></p>');
+    return;
+  }
+  sel.value = DATI.avvio || Object.keys(DATI.stanze)[0];
+  caricaStanza(sel.value);
+})();
+</script>
+
+</body>
+</html>

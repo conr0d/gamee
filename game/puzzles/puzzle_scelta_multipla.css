@@ -1,0 +1,92 @@
+/* Scelta multipla — classi prefissate .pz-, non escono da questo puzzle */
+
+.pz-scelte{ display:flex; flex-direction:column; gap:11px; max-width:40ch; }
+
+.pz-scelta{
+  display:flex; align-items:center; gap:12px;
+  width:100%;
+  min-height:52px;                 /* target touch minimo, con margine */
+  padding:12px 15px;
+  text-align:left;
+  font-size:15px;
+  color:var(--testo-chiaro);
+  background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+  border:1.5px solid rgba(212,175,55,.45);
+  border-radius:10px;
+  cursor:pointer;
+  transition:background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.pz-scelta:active{ transform:scale(.98); }
+.pz-scelta:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+.pz-scelta:disabled{ cursor:default; }
+
+.pz-scelta .pz-lettera{
+  flex:0 0 auto;
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%;
+  background:rgba(212,175,55,.2);
+  border:1px solid rgba(212,175,55,.6);
+  color:var(--oro);
+  font-weight:700; font-size:13px;
+}
+
+.pz-scelta.errata{
+  border-color:rgba(200,80,70,.75);
+  background:rgba(160,50,45,.18);
+  opacity:.55;
+}
+.pz-scelta.corretta{
+  border-color:#8fd08f;
+  background:rgba(90,170,90,.22);
+}
+
+/* ---------- vetrina: opzioni illustrate ----------
+   I reperti disegnati SONO le opzioni: la teca è questa griglia, non un
+   elenco separato da leggere prima di scegliere. */
+
+.pz-scelte--vetrina{
+  display:grid;
+  /* a 375px entrano tre tessere per riga (~104px l'una): alle incisioni
+     serve spazio per essere viste, cinque strette in fila non basterebbero */
+  grid-template-columns:repeat(auto-fit, minmax(88px, 1fr));
+  gap:10px;
+  max-width:100%;
+  padding:12px;
+  border-radius:12px;
+  /* il vetro della teca: un velo chiaro dall'alto e una cornice d'ottone */
+  background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+  border:1px solid rgba(212,175,55,.35);
+}
+
+.pz-scelta--img{
+  flex-direction:column;
+  gap:6px;
+  min-height:88px;                 /* ben oltre il minimo di 44px */
+  padding:8px 6px 6px;
+  text-align:center;
+  justify-content:space-between;
+}
+
+.pz-scelta-disegno{
+  width:100%;
+  max-width:64px;
+  aspect-ratio:1;
+  display:block;
+  margin:0 auto;
+  /* i disegni portano i colori dei materiali: nessun filtro sopra, o oro e
+     bronzo smetterebbero di distinguersi, che è tutto il punto dell'enigma */
+}
+
+.pz-scelta-numero{
+  flex:0 0 auto;
+  width:24px; height:24px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%;
+  background:rgba(212,175,55,.2);
+  border:1px solid rgba(212,175,55,.6);
+  color:var(--oro);
+  font-weight:700; font-size:13px;
+}
+
+.pz-scelta--img.errata .pz-scelta-disegno{ opacity:.5; }

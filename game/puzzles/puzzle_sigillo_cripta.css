@@ -1,0 +1,41 @@
+/* Sigillo della Cripta — classi prefissate .pz-, non escono da questo puzzle */
+
+.pz-sigillo-caselle{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin:8px 0;
+}
+
+.pz-sigillo-casella{
+  width:60px; height:60px;
+  min-width:44px; min-height:44px;   /* target touch minimo */
+  border-radius:12px;
+  border:2px dashed rgba(212,175,55,.5);
+  background:rgba(255,255,255,.03);
+  transition:background .2s ease, border-color .2s ease, transform .15s ease;
+}
+
+.pz-sigillo-casella.pz-sigillo-casella--piena{
+  border-style:solid;
+  border-color:#8fd08f;
+  background:rgba(90,170,90,.25);
+}
+
+/* stato di dropzone attiva/hover impostato dal motore (classi condivise,
+   engine.css): qui basta far reagire visivamente questa casella */
+.pz-sigillo-casella.dropzone-hover{
+  border-color:var(--oro);
+  transform:scale(1.06);
+}
+
+.pz-sigillo-stato{
+  margin:4px 0 0;
+  font-size:13px;
+  color:var(--testo-chiaro);
+  opacity:.8;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .pz-sigillo-casella{ transition:none; }
+}

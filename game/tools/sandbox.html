@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sandbox puzzle — Museo del Faraone</title>
+
+<!-- Solo il CSS del motore (per i mattoni condivisi) e quello dei puzzle.
+     NIENTE engine.js: qui il motore non c'è, e l'api è finta.
+
+     I CSS dei puzzle vengono da puzzles/manifest.js, la stessa lista che usa
+     index.html: un puzzle nuovo compare qui senza toccare questo file.
+
+     Tutto qui sotto è cache-bustato con un timestamp condiviso (SB_BUST):
+     la sandbox è uno strumento di sviluppo, deve sempre mostrare l'ultima
+     versione salvata su disco, mai una copia in cache del browser. -->
+<script>window.SB_BUST = Date.now();</script>
+<link rel="stylesheet" href="../assets/css/engine.css">
+<script src="../puzzles/manifest.js"></script>
+<script>
+  (window.PUZZLE_MANIFEST || []).forEach(function (nome) {
+    document.write('<link rel="stylesheet" href="../puzzles/' + nome + '.css?t=' + window.SB_BUST + '">');
+  });
+</script>
+
+<style>
+  /* la sandbox non è il gioco: qui si può scorrere e stare larghi */
+  html,body{ overflow:auto; background:#0e1015; color:var(--testo-chiaro); }
+  body{ padding:16px; font-size:14px; }
+  h1{ font-size:16px; color:var(--oro); margin:0 0 4px; letter-spacing:.02em; }
+  .sb-nota{ color:rgba(242,230,201,.5); font-size:12px; margin:0 0 16px; line-height:1.5; }
+  .sb-barra{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .sb-barra label{ font-size:12px; color:rgba(242,230,201,.7); }
+  select, button, textarea{ font-family:inherit; }
+  select{ padding:7px 10px; border-radius:6px; background:#1d2029; color:var(--testo-chiaro);
+          border:1px solid rgba(212,175,55,.45); min-height:36px; }
+  .sb-vai{ padding:8px 16px; min-height:36px; border:none; border-radius:6px;
+           background:linear-gradient(180deg,#c9a961,#8a6d1f); color:#1a1408; font-weight:600; cursor:pointer; }
+  textarea{ width:100%; min-height:150px; padding:10px; border-radius:6px; resize:vertical;
+            background:#14161c; color:#cfe3cf; border:1px solid rgba(255,255,255,.18);
+            font-family:Consolas,Menlo,monospace; font-size:12.5px; line-height:1.5; }
+  .sb-scena{
+    margin-top:14px; padding:20px;
+    border:1px solid rgba(212,175,55,.3); border-radius:8px;
+    background:radial-gradient(120% 70% at 50% 0%, rgba(212,175,55,.08), transparent 62%),
+               linear-gradient(170deg,#1d2029,#0e1015);
+  }
+  .sb-log{
+    margin-top:12px; padding:10px 12px; min-height:44px;
+    border-radius:6px; background:#101319; border:1px solid rgba(255,255,255,.12);
+    font-family:Consolas,Menlo,monospace; font-size:12.5px; line-height:1.7; color:#9fd39f;
+    white-space:pre-wrap;
+  }
+  .sb-log .ko{ color:#e79a94; }
+  .sb-nota-inline{ font-size:11.5px; color:rgba(242,230,201,.42); }
+  /* l'indizio della proposta: nel gioco costa una piuma, qui si legge subito */
+  .sb-indizio{
+    margin:0 0 10px; padding:9px 12px;
+    border-left:3px solid var(--oro);
+    background:rgba(212,175,55,.08);
+    font-size:12.5px; line-height:1.6; color:rgba(242,230,201,.85);
+  }
+  /* la spiegazione è chiusa di default: nel gioco arriva DOPO la soluzione,
+     e chi qui vuole prima provare l'enigma non se la trova già aperta */
+  .sb-spiegazione{
+    margin:0 0 12px; padding:8px 12px; border-radius:6px;
+    background:rgba(127,209,127,.07); border:1px solid rgba(127,209,127,.25);
+    font-size:12.5px; line-height:1.6;
+  }
+  .sb-spiegazione summary{ cursor:pointer; color:#9fd39f; }
+  .sb-spiegazione p{ margin:8px 0 0; color:rgba(242,230,201,.85); }
+</style>
+</head>
+<body>
+
+<h1>Sandbox puzzle</h1>
+<p class="sb-nota">
+  Prova un modulo di <code>/puzzles</code> da solo, senza motore e senza stanze.
+  L'<code>api</code> qui è finta e registra ogni chiamata nel log in fondo: è la stessa
+  superficie che passa <code>Engine._apiPuzzle()</code>, quindi ciò che funziona qui
+  funziona nel gioco.<br>
+  Per aggiungere un puzzle nuovo: <code>puzzles/puzzle_NOME.js</code> con un campo
+  <code>esempio</code> accanto a <code>render</code>, e una riga in <code>puzzles/manifest.js</code>.
+  Compare qui da solo, senza toccare questa pagina.<br>
+  I tre selettori sono alternativi: <strong>Enigma</strong> pesca dagli enigmi veri del
+  gioco, <strong>Proposta</strong> dai candidati non ancora cablati, <strong>Puzzle</strong>
+  carica la meccanica nuda col suo esempio.
+</p>
+
+<div class="sb-barra">
+  <label for="sb-enigma">Enigma da game_data.js</label>
+  <select id="sb-enigma"><option value="">— nessuno, parti da un esempio —</option></select>
+</div>
+
+<div class="sb-barra">
+  <label for="sb-proposta">Proposta da valutare</label>
+  <select id="sb-proposta"><option value="">— nessuna —</option></select>
+  <span class="sb-nota-inline">non ancora nel gioco: <code>tools/proposte_enigmi.js</code></span>
+</div>
+
+<p class="sb-indizio" id="sb-indizio" hidden></p>
+
+<details class="sb-spiegazione" id="sb-spiegazione" hidden>
+  <summary>Spiegazione della risposta</summary>
+  <p id="sb-spiegazione-testo"></p>
+</details>
+
+<div class="sb-barra">
+  <label for="sb-puzzle">Puzzle</label>
+  <select id="sb-puzzle"></select>
+  <button class="sb-vai" id="sb-carica">Carica</button>
+</div>
+
+<textarea id="sb-parametri" spellcheck="false" aria-label="Parametri del puzzle"></textarea>
+
+<div class="sb-scena" id="sb-scena"></div>
+<div class="sb-log" id="sb-log"></div>
+
+<!-- Gli enigmi VERI vivono in game_data.js: caricandolo qui (script classico,
+     stesso file che usa index.html, niente fetch) il menu "Enigma" qui sotto
+     si riempie da solo con ogni hotspot tipo:'enigma' di ogni stanza. Aggiungere
+     un enigma a game_data.js non richiede più toccare questo file.
+
+     Stesso SB_BUST dell'head: un solo timestamp per l'intera pagina. -->
+<script>document.write('<script src="../game_data.js?t=' + window.SB_BUST + '"><' + '/script>');</script>
+
+<!-- Le PROPOSTE non sono contenuto del gioco: vivono solo qui, e index.html
+     non le carica. Servono a provare un enigma candidato con una meccanica
+     esistente prima di decidere se promuoverlo in game_data.js. -->
+<script>document.write('<script src="proposte_enigmi.js?t=' + window.SB_BUST + '"><' + '/script>');</script>
+
+<!-- I moduli puzzle vengono da puzzles/manifest.js (già caricato in <head>
+     per i CSS): riusiamo lo stesso elenco, niente lista duplicata qui. -->
+<script>
+  (window.PUZZLE_MANIFEST || []).forEach(function (nome) {
+    document.write('<script src="../puzzles/' + nome + '.js?t=' + window.SB_BUST + '"><' + '/script>');
+  });
+</script>
+
+<script>
+const scena = document.getElementById('sb-scena');
+const logEl = document.getElementById('sb-log');
+const areaParam = document.getElementById('sb-parametri');
+const selettore = document.getElementById('sb-puzzle');
+const selettoreEnigma = document.getElementById('sb-enigma');
+const selettoreProposta = document.getElementById('sb-proposta');
+const indizioEl = document.getElementById('sb-indizio');
+const spiegazioneEl = document.getElementById('sb-spiegazione');
+const spiegazioneTestoEl = document.getElementById('sb-spiegazione-testo');
+
+function log(msg, ko) {
+  const r = document.createElement('div');
+  if (ko) r.className = 'ko';
+  r.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  logEl.appendChild(r);
+}
+
+/* api finta: stessa forma di quella del motore, ma parla solo al log */
+let listenerFinti = [];
+let progressoFinto = null;      // azzerato a ogni caricamento di un puzzle
+function apiFinta() {
+  return {
+    risolto: () => log('✓ risolto — nel gioco: Engine.completaEnigma()'),
+    registraListener: (t, ev, fn, opts) => { t.addEventListener(ev, fn, opts); listenerFinti.push({t, ev, fn, opts}); },
+    abilitaDropZone: (el, idAtteso, onOk) => {
+      el.classList.add('dropzone-attiva');
+      log('dropzone attivata (attende "' + idAtteso + '") — qui il drag non c\'è, clicca il bersaglio');
+      el.addEventListener('click', () => onOk(idAtteso));
+    },
+    inventario: () => {
+      log('inventario() → [] (la sandbox parte con lo zaino vuoto)');
+      return [];
+    },
+    consumaOggetto: (id) => log('consumaOggetto("' + id + '") — nel gioco sparisce dallo zaino'),
+    // progresso a metà enigma: qui vive per il tempo di una prova, in memoria
+    progresso: () => { log('progresso() → ' + JSON.stringify(progressoFinto)); return progressoFinto; },
+    salvaProgresso: (dati) => { progressoFinto = dati; log('salvaProgresso(' + JSON.stringify(dati) + ')'); }
+  };
+}
+
+function carica() {
+  const nome = selettore.value;
+  listenerFinti.forEach(l => l.t.removeEventListener(l.ev, l.fn, l.opts));
+  listenerFinti = [];
+  progressoFinto = null;        // ogni caricamento riparte da zero
+  scena.innerHTML = '';
+  logEl.innerHTML = '';
+
+  let parametri;
+  try {
+    parametri = (new Function('return (' + areaParam.value + ');'))();
+  } catch (e) {
+    log('parametri non validi: ' + e.message, true);
+    return;
+  }
+  try {
+    Puzzles[nome].render(scena, parametri, apiFinta());
+    log('render "' + nome + '" eseguito');
+  } catch (e) {
+    log('render fallito: ' + e.message, true);
+  }
+}
+
+/* riempie il selettore con i puzzle effettivamente registrati */
+Object.keys(window.Puzzles || {}).forEach(nome => {
+  const o = document.createElement('option');
+  o.value = nome; o.textContent = nome;
+  selettore.appendChild(o);
+});
+function mostraEsempio() {
+  const p = window.Puzzles && window.Puzzles[selettore.value];
+  areaParam.value = JSON.stringify(conPercorsiRisolti((p && p.esempio) || {}), null, 2);
+}
+
+/* riempie il selettore "Enigma" con OGNI hotspot tipo:'enigma' trovato in
+   GAME_DATA, stanza per stanza — così un enigma appena scritto in
+   game_data.js compare qui senza toccare la sandbox. */
+const enigmi = [];
+const stanze = (window.GAME_DATA && window.GAME_DATA.stanze) || {};
+Object.keys(stanze).forEach(idStanza => {
+  (stanze[idStanza].hotspot || []).forEach(h => {
+    if (h.tipo === 'enigma' && h.puzzle && h.puzzle !== 'segnaposto') {
+      enigmi.push({ id: h.id, stanza: idStanza, nome: h.nome, puzzle: h.puzzle,
+                    parametri: h.parametri, indizio: h.indizio,
+                    spiegazione: h.spiegazione });
+    }
+  });
+});
+enigmi.forEach(e => {
+  const o = document.createElement('option');
+  o.value = e.id;
+  o.textContent = e.id + (e.nome ? ' — ' + e.nome : '') + '  [' + e.puzzle + ']';
+  selettoreEnigma.appendChild(o);
+});
+if (!enigmi.length) {
+  log('nessun enigma con puzzle reale trovato in game_data.js (solo "segnaposto"?)');
+}
+
+/* riempie il selettore "Proposta" con le candidate di tools/proposte_enigmi.js:
+   enigmi verificati (tools/verifiche/proposte_10_enigmi.py) ma NON ancora
+   cablati nel gioco. Servono a provarli prima di sceglierli. */
+const proposte = window.PROPOSTE_ENIGMI || [];
+proposte.forEach(p => {
+  const o = document.createElement('option');
+  o.value = p.id;
+  o.textContent = p.id + ' — ' + p.nome + '  [' + p.puzzle + ']';
+  selettoreProposta.appendChild(o);
+});
+if (!proposte.length) {
+  log('nessuna proposta caricata: manca o è vuoto tools/proposte_enigmi.js');
+}
+
+/* l'indizio è parte del contenuto dell'enigma, non del puzzle: il motore lo
+   fa pagare una piuma, qui va letto subito per poterlo giudicare. */
+function mostraIndizio(testo) {
+  if (testo) {
+    indizioEl.textContent = 'Indizio: ' + testo;
+    indizioEl.hidden = false;
+  } else {
+    indizioEl.textContent = '';
+    indizioEl.hidden = true;
+  }
+}
+
+/* la spiegazione nel gioco la mostra il motore DOPO la soluzione (toast).
+   Qui sta in un <details> chiuso: si legge solo se la si apre. */
+function mostraSpiegazione(testo) {
+  spiegazioneTestoEl.textContent = testo || '';
+  spiegazioneEl.hidden = !testo;
+  spiegazioneEl.open = false;
+}
+
+/* I percorsi nei dati sono relativi a index.html, che sta nella radice; questa
+   pagina sta in tools/, quindi 'assets/img/x.png' da qui punterebbe a
+   'tools/assets/img/x.png' e non si troverebbe. Ad adattarsi è la sandbox, che
+   è lo strumento di sviluppo: i puzzle restano ignoranti del punto da cui
+   vengono aperti. Il valore resta comunque modificabile a mano nella textarea. */
+function conPercorsiRisolti(parametri) {
+  const copia = JSON.parse(JSON.stringify(parametri || {}));
+
+  // tutti i campi "immagine…": il puzzle li riceve relativi a index.html
+  // (radice), questa pagina sta in tools/ e li chiede con "../" davanti.
+  function risolvi(oggetto) {
+    if (!oggetto || typeof oggetto !== 'object') return;
+    Object.keys(oggetto).forEach(k => {
+      if (k.indexOf('immagine') !== 0) return;
+      const v = oggetto[k];
+      // solo i percorsi relativi: un http(s)://, un data: o un ../ vanno lasciati stare
+      if (typeof v === 'string' && v && !/^([a-z]+:|\/|\.\.\/)/i.test(v)) {
+        oggetto[k] = '../' + v;
+      }
+    });
+  }
+
+  risolvi(copia);                           // immagine del puzzle (scorrimento) e immagini degli anelli/sfera
+  (copia.opzioni || []).forEach(risolvi);   // immagini delle opzioni (scelta multipla)
+  (copia.elementi || []).forEach(risolvi);  // immagini degli elementi (disposizione)
+  return copia;
+}
+
+selettoreEnigma.addEventListener('change', () => {
+  const id = selettoreEnigma.value;
+  selettoreProposta.value = '';
+  if (!id) { mostraIndizio(''); mostraSpiegazione(''); mostraEsempio(); carica(); return; }
+  const e = enigmi.find(x => x.id === id);
+  if (!e || !Puzzles[e.puzzle]) {
+    log('puzzle "' + (e && e.puzzle) + '" non registrato: manca il suo <script> in questa sandbox', true);
+    return;
+  }
+  selettore.value = e.puzzle;
+  areaParam.value = JSON.stringify(conPercorsiRisolti(e.parametri), null, 2);
+  mostraIndizio(e.indizio);
+  mostraSpiegazione(e.spiegazione);
+  carica();
+});
+
+selettoreProposta.addEventListener('change', () => {
+  const id = selettoreProposta.value;
+  selettoreEnigma.value = '';
+  if (!id) { mostraIndizio(''); mostraSpiegazione(''); mostraEsempio(); carica(); return; }
+  const p = proposte.find(x => x.id === id);
+  if (!p || !Puzzles[p.puzzle]) {
+    log('puzzle "' + (p && p.puzzle) + '" non registrato: manca il suo <script> in questa sandbox', true);
+    return;
+  }
+  selettore.value = p.puzzle;
+  areaParam.value = JSON.stringify(conPercorsiRisolti(p.parametri), null, 2);
+  mostraIndizio(p.indizio);
+  mostraSpiegazione(p.spiegazione);
+  carica();
+});
+
+selettore.addEventListener('change', () => {
+  selettoreEnigma.value = '';
+  selettoreProposta.value = '';
+  mostraIndizio('');
+  mostraSpiegazione('');
+  mostraEsempio();
+  carica();
+});
+document.getElementById('sb-carica').addEventListener('click', carica);
+
+mostraEsempio();
+carica();
+</script>
+</body>
+</html>

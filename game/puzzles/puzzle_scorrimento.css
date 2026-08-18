@@ -1,0 +1,82 @@
+/* Scorrimento — classi prefissate .pz-, non escono da questo puzzle */
+
+.pz-scorr-griglia{
+  display:grid;
+  gap:7px;
+  width:100%;
+  max-width:300px;
+  margin:4px 0;
+}
+
+.pz-scorr-tessera{
+  /* a tessere numerate ogni casella è quadrata; con l'immagine è la GRIGLIA
+     ad avere l'aspect-ratio giusto (lo impone il JS) e le tessere si limitano
+     a riempire la loro cella, altrimenti il disegno si spezzerebbe */
+  aspect-ratio:1;
+  min-height:44px;                 /* target touch minimo */
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:700;
+  color:var(--testo-chiaro);
+  background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
+  border:1.5px solid rgba(212,175,55,.5);
+  border-radius:10px;
+  cursor:pointer;
+  transition:background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.pz-scorr-tessera:active:not(:disabled){ transform:scale(.94); }
+.pz-scorr-tessera:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+
+.pz-scorr-tessera.pz-scorr-vuota{
+  background:transparent;
+  border-color:rgba(212,175,55,.18);
+  border-style:dashed;
+  cursor:default;
+}
+
+/* ---------- tessere con un pezzo d'immagine ---------- */
+
+.pz-scorr-griglia--img .pz-scorr-tessera{ aspect-ratio:auto; }
+
+.pz-scorr-tessera--img{
+  /* niente gradiente sotto: coprirebbe il disegno. La posizione e la misura
+     dello sfondo le calcola il JS, tessera per tessera. */
+  background-color:transparent;
+  background-repeat:no-repeat;
+  /* bordo più sottile e angoli meno tondi: a bordi spessi il disegno si legge
+     come otto figure separate invece che come un'immagine da ricomporre */
+  border-width:1px;
+  border-color:rgba(212,175,55,.35);
+  border-radius:6px;
+  /* il numero d'angolo si posiziona rispetto alla tessera */
+  position:relative;
+  align-items:flex-start;
+  justify-content:flex-start;
+}
+
+/* aiuto facoltativo (parametri.numeri): piccolo, in un angolo, leggibile
+   anche sopra un'immagine chiara grazie all'alone scuro */
+.pz-scorr-numero{
+  padding:1px 5px;
+  margin:3px;
+  border-radius:5px;
+  font-size:12px; font-weight:700; line-height:1.4;
+  color:#fff;
+  background:rgba(0,0,0,.55);
+}
+
+/* ---------- anteprima dell'immagine completa ---------- */
+
+.pz-scorr-anteprima{
+  width:76px;
+  margin:0 0 10px;
+  border:1px solid rgba(212,175,55,.45);
+  border-radius:6px;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  opacity:.85;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .pz-scorr-tessera{ transition:none; }
+}

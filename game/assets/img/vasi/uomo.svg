@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Vaso col coperchio a testa umana">
+  <!-- VASO — coperchio a testa UMANA. Stesso corpo in alabastro degli
+       altri tre; il nemes a bande blu/oro basta da solo a leggersi come
+       "umano" anche a distanza, senza bisogno di dettagli del volto. -->
+  <defs>
+    <linearGradient id="uCorpo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf6ea"/>
+      <stop offset="60%" stop-color="#f0e6d2"/>
+      <stop offset="100%" stop-color="#cdbb99"/>
+    </linearGradient>
+  </defs>
+
+  <!-- corpo del vaso -->
+  <rect x="24" y="57" width="16" height="4" rx="1.5" fill="#a8977a"/>
+  <rect x="19" y="33" width="26" height="26" rx="6" fill="url(#uCorpo)" stroke="#a8977a" stroke-width="1.2"/>
+  <rect x="17" y="29" width="30" height="7" rx="3.5" fill="#e2d3ac" stroke="#a8977a" stroke-width="1"/>
+
+  <!-- nemes: copricapo a bande, alette laterali spioventi sulle spalle -->
+  <path d="M20 30c-1-6 0-12 3-16.4C25.6 9.4 28.6 8 32 8s6.4 1.4 9 5.6c3 4.4 4 10.4 3 16.4z"
+        fill="#c98a34"/>
+  <path d="M20 30c-1-6 0-12 3-16.4C25.6 9.4 28.6 8 32 8v22z" fill="#2f5f8a"/>
+  <path d="M19.6 22.4c1.4 3 1.6 5.6 1.2 8M44.4 22.4c-1.4 3-1.6 5.6-1.2 8" stroke="#2f5f8a" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M23 19.2c1.2 3.6 1.4 7 1 10.8M41 19.2c-1.2 3.6-1.4 7-1 10.8" stroke="#c98a34" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- volto -->
+  <path d="M24.6 17.6h14.8v6.6c0 4-3.3 6.6-7.4 6.6s-7.4-2.6-7.4-6.6z" fill="#e0a86e"/>
+  <circle cx="28.6" cy="21.2" r="1.15" fill="#3a2314"/>
+  <circle cx="35.4" cy="21.2" r="1.15" fill="#3a2314"/>
+  <path d="M30.4 27.4c1 .8 2.2.8 3.2 0" stroke="#3a2314" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+</svg>

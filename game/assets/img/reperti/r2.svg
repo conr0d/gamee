@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Amuleto d'argento, inciso">
+  <!-- REPERTO 2 — amuleto d'argento, INCISO (oro: no, iscrizione: sì)
+       Argento freddo e azzurrino: nessuna parentela cromatica con l'oro.
+       I glifi sono scavati nel corpo dell'amuleto e ben staccati: o ci
+       sono o non ci sono, niente mezze misure. -->
+  <defs>
+    <linearGradient id="r2arg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#c7ced6"/>
+      <stop offset="100%" stop-color="#8c98a6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- anellino di sospensione -->
+  <path d="M32 6a4.2 4.2 0 0 1 4.2 4.2v2.2h-3.1v-2.2A1.1 1.1 0 0 0 32 9.1a1.1 1.1 0 0 0-1.1 1.1v2.2h-3.1v-2.2A4.2 4.2 0 0 1 32 6z"
+        fill="#8c98a6"/>
+
+  <!-- corpo dell'amuleto: scarabeo stilizzato, placca ovale -->
+  <ellipse cx="32" cy="35" rx="17" ry="21" fill="url(#r2arg)"/>
+  <ellipse cx="32" cy="35" rx="17" ry="21" fill="none" stroke="#6f7b88" stroke-width="1.6"/>
+
+  <!-- ISCRIZIONE: tre righe di glifi scavati, scuri, ad alto contrasto -->
+  <g stroke="#4d5762" stroke-width="2" stroke-linecap="round" fill="none">
+    <!-- riga 1: occhio + tratto -->
+    <path d="M24 25.5c1.6-2 4.2-2 5.8 0-1.6 2-4.2 2-5.8 0z"/>
+    <path d="M34.5 24.2v3.6"/>
+    <path d="M37.8 24.2v3.6"/>
+    <!-- riga 2: onda + quadrato -->
+    <path d="M23.5 34c1.4-1.5 2.6.9 4 -.6s2.6.9 4-.6"/>
+    <path d="M35.8 32.4h4.4v3.4h-4.4z"/>
+    <!-- riga 3: tre tacche e un arco -->
+    <path d="M24.5 41.6v3.6M28 41.6v3.6M31.5 41.6v3.6"/>
+    <path d="M35.4 45.2a3.2 3.2 0 0 1 4.6 0"/>
+  </g>
+</svg>

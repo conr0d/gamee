@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Vaso col coperchio a testa di sciacallo">
+  <!-- VASO — coperchio a testa di SCIACALLO. Stesso corpo in alabastro
+       degli altri tre; pelo nero-antracite e muso lungo per la lettura
+       immediata a colpo d'occhio, distinto dal grigio-bruno del babbuino. -->
+  <defs>
+    <linearGradient id="sCorpo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf6ea"/>
+      <stop offset="60%" stop-color="#f0e6d2"/>
+      <stop offset="100%" stop-color="#cdbb99"/>
+    </linearGradient>
+    <linearGradient id="sPelo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3632"/>
+      <stop offset="100%" stop-color="#15130f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- corpo del vaso -->
+  <rect x="24" y="57" width="16" height="4" rx="1.5" fill="#a8977a"/>
+  <rect x="19" y="33" width="26" height="26" rx="6" fill="url(#sCorpo)" stroke="#a8977a" stroke-width="1.2"/>
+  <rect x="17" y="29" width="30" height="7" rx="3.5" fill="#e2d3ac" stroke="#a8977a" stroke-width="1"/>
+
+  <!-- testa: cranio stretto, orecchie alte e appuntite -->
+  <path d="M32 7c7 0 11.6 5 11.6 11.4 0 4.6-2.2 8-4 10.2H24.4c-1.8-2.2-4-5.6-4-10.2C20.4 12 25 7 32 7z"
+        fill="url(#sPelo)"/>
+  <path d="M22.5 15 19 6l6.2 4.6z" fill="url(#sPelo)"/>
+  <path d="M41.5 15 45 6l-6.2 4.6z" fill="url(#sPelo)"/>
+  <path d="M25 28.4h14v3.4a2.6 2.6 0 0 1-2.6 2.6H27.6a2.6 2.6 0 0 1-2.6-2.6z" fill="#0f0d0a"/>
+
+  <!-- muso allungato, tipico di Anubi -->
+  <path d="M32 19.5c3.8 0 7 1.4 7 4.4 0 2.4-2.4 3.6-4 4.2-.6 1-1.8 1.6-3 1.6s-2.4-.6-3-1.6c-1.6-.6-4-1.8-4-4.2 0-3 3.2-4.4 7-4.4z"
+        fill="#2a2723"/>
+  <ellipse cx="32" cy="27.6" rx="1.7" ry="1.2" fill="#0a0908"/>
+
+  <!-- occhi -->
+  <circle cx="27.4" cy="18.4" r="1.5" fill="#e8dcc0"/>
+  <circle cx="36.6" cy="18.4" r="1.5" fill="#e8dcc0"/>
+  <circle cx="27.4" cy="18.4" r=".65" fill="#0a0908"/>
+  <circle cx="36.6" cy="18.4" r=".65" fill="#0a0908"/>
+</svg>

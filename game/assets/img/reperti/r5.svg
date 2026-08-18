@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Pettine d'avorio, inciso">
+  <!-- REPERTO 5 — pettine d'avorio, INCISO (oro: no, iscrizione: sì)
+       Avorio quasi bianco: il più chiaro dei quattro materiali, nessun
+       rischio di leggerlo come oro (che è nettamente più saturo e giallo).
+       I glifi sono scavati sulla costa alta del pettine.
+       Attenzione a non confondere i DENTI del pettine con incisioni:
+       i denti sono la forma dell'oggetto, i glifi stanno sulla costa. -->
+  <defs>
+    <linearGradient id="r5avo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf6ea"/>
+      <stop offset="60%" stop-color="#f0e6d2"/>
+      <stop offset="100%" stop-color="#cdbb99"/>
+    </linearGradient>
+  </defs>
+
+  <!-- costa del pettine -->
+  <rect x="11" y="10" width="42" height="24" rx="3" fill="url(#r5avo)"/>
+  <rect x="11" y="10" width="42" height="24" rx="3" fill="none" stroke="#b3a081" stroke-width="1.6"/>
+
+  <!-- ISCRIZIONE sulla costa: glifi scavati, scuri, ad alto contrasto -->
+  <g stroke="#7d6a4a" stroke-width="2" stroke-linecap="round" fill="none">
+    <!-- occhio -->
+    <path d="M16.5 18.5c1.7-2.1 4.5-2.1 6.2 0-1.7 2.1-4.5 2.1-6.2 0z"/>
+    <!-- piuma -->
+    <path d="M28.5 22.6V15M28.5 16.6l2.6-1.6M28.5 19.2l2.6-1.6"/>
+    <!-- onda -->
+    <path d="M35.5 18c1.2-1.4 2.3.8 3.5-.6"/>
+    <!-- tacche -->
+    <path d="M43.6 15.4v6.4M47.4 15.4v6.4"/>
+    <!-- riga bassa -->
+    <path d="M16.5 27.8h12M33 27.8h14.4"/>
+  </g>
+
+  <!-- denti: parte della FORMA dell'oggetto, non incisioni -->
+  <g fill="url(#r5avo)" stroke="#b3a081" stroke-width="1.2">
+    <path d="M14 34h4v18a2 2 0 0 1-4 0z"/>
+    <path d="M21 34h4v18a2 2 0 0 1-4 0z"/>
+    <path d="M28 34h4v18a2 2 0 0 1-4 0z"/>
+    <path d="M35 34h4v18a2 2 0 0 1-4 0z"/>
+    <path d="M42 34h4v18a2 2 0 0 1-4 0z"/>
+    <path d="M49 34h3v18a1.5 1.5 0 0 1-3 0z"/>
+  </g>
+</svg>

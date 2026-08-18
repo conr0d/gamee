@@ -1,0 +1,792 @@
+/* =========================================================================
+   MUSEO DEL FARAONE — CSS del motore
+   Solo interfaccia generica: scena, hotspot, frecce, pulsanti fissi,
+   inventario, toast, mappa, cornice della schermata enigma.
+   Il CSS specifico di un puzzle sta nel suo file in /puzzles.
+   ========================================================================= */
+
+:root{
+  --oro: #d4af37;
+  --oro-scuro: #8a6d1f;
+  --sfondo-scuro-1: #1a1a2e;
+  --sfondo-scuro-2: #16213e;
+  --pergamena: #2b2013;
+  --pietra: #37424d;
+  --testo-chiaro: #f2e6c9;
+  --rosso-avviso: #a4362f;
+  --rosso-freccia: #d8342a;
+  --marrone-cornice: #7a4f2a;
+}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+html,body{ margin:0; padding:0; height:100%; background:#000; overflow:hidden; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+#app{
+  position:relative;
+  width:100%;
+  height:100dvh;
+  max-width:520px;
+  margin:0 auto;
+  background:var(--sfondo-scuro-1);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+/* =====================================================================
+   LIVELLI (z-index) — un posto solo dove leggerli
+     4  hotspot            19 pannello inventario
+     5  frecce / etichette 20 pulsanti fissi
+     6  overlay dim        30 schermata enigma
+                           40/41 pannello inventario e zaino sopra l'enigma
+                           50 pannello mappa
+                           60 toast (sta sopra tutto: può servire ovunque)
+                           70 filmato (copre anche il toast, finché dura)
+   ===================================================================== */
+
+/* ---------- FILMATO ---------- */
+/* Copre tutta la finestra mentre dura. Nero dietro: un video verticale su
+   uno schermo largo (o viceversa) non deve lasciare intravedere la stanza.
+   `contain`: si vede intero, mai ritagliato. */
+#video-scena{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:contain;
+  background:#000;
+  z-index:70;
+  /* Due tempi, uno dietro l'altro: prima il quadro sfuma nel nero (filter),
+     poi il nero si scioglie sulla schermata già aperta (opacity). Lunghe di
+     proposito: è la chiusura del gioco, non una micro-interazione. */
+  transition:filter 2s ease-in, opacity 1.2s ease-out;
+}
+/* il fondo dell'elemento è nero: spegnendo il quadro resta il buio pieno */
+#video-scena.buio{ filter:brightness(0); }
+#video-scena.via{ opacity:0; pointer-events:none; }
+
+/* ---------- ZONA MAPPA / SCENA ---------- */
+/* #mappa è la finestra: ritaglia e non si muove mai.
+   touch-action:none serve al pan — senza, il browser si prende il gesto
+   di trascinamento e i pointermove non arrivano mai al motore. */
+#mappa{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  /* clip, non hidden: `hidden` lascia il riquadro scorrevole, e il browser lo
+     scorre da sé per portare in vista ciò che prende il fuoco — scavalcando
+     il pan e falsando limiti e bordi. `clip` non crea proprio un contenitore
+     scorrevole. La riga `hidden` resta prima come ripiego per browser vecchi. */
+  overflow:hidden;
+  overflow:clip;
+  touch-action:none;
+  transition:filter .25s ease;
+}
+
+/* #mappa-scena è la stanza: può essere più grande della finestra (le misure
+   arrivano dal `pan` dei dati) e si sposta con una translate3d, che fa il
+   compositore e non costringe a rifare il layout a ogni fotogramma.
+   Le percentuali di hotspot e frecce si riferiscono a QUESTO livello, quindi
+   posX:40 continua a voler dire «al 40% della stanza». */
+#mappa-scena{
+  position:absolute; top:0; left:0;
+  width:100%; height:100%;
+  will-change:transform;
+}
+/* la transizione accompagna solo i riposizionamenti automatici (ingresso in
+   stanza, messa a fuoco di un hotspot): mai il dito, che deve essere seguito
+   istante per istante */
+#mappa-scena.pan-morbido{ transition:transform .2s ease-out; }
+
+#mappa-sfondo{
+  position:absolute; inset:0;
+  background-size:cover;
+  background-position:center;
+}
+
+/* Bordi sfumati: dicono che di là c'è dell'altro da vedere, e si spengono
+   quando da quel lato la stanza è finita. Nessuna scritta, nessun movimento. */
+#mappa::before, #mappa::after{
+  content:'';
+  position:absolute; top:0; bottom:0;
+  width:26px;
+  pointer-events:none;
+  z-index:6;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+#mappa::before{ left:0;  background:linear-gradient(90deg, rgba(0,0,0,.45), transparent); }
+#mappa::after{  right:0; background:linear-gradient(270deg, rgba(0,0,0,.45), transparent); }
+#mappa.pan-ovest::before{ opacity:1; }
+#mappa.pan-est::after{ opacity:1; }
+/* cambio stanza: breve dissolvenza, niente stacco secco */
+@keyframes sfondo-entra{ from{ opacity:.2; } to{ opacity:1; } }
+
+/* ---------- HOTSPOT ---------- */
+.hotspot{
+  position:absolute;
+  width:48px; height:48px;                 /* target touch minimo + qualche px */
+  padding:0;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--testo-chiaro);
+  background:rgba(0,0,0,.35);
+  border:2px solid rgba(255,255,255,.55);
+  cursor:pointer;
+  z-index:4;
+  box-shadow:0 0 8px rgba(0,0,0,.5);
+  transition:transform .15s ease, opacity .2s ease;
+}
+.hotspot svg{ width:26px; height:26px; display:block; }
+.hotspot:active{ transform:translate(-50%,-50%) scale(.92); }
+.hotspot:focus-visible{ outline:3px solid var(--oro); outline-offset:3px; }
+.hotspot.completato{ opacity:.45; border-color:var(--oro); }
+.hotspot.tipo-enigma{ border-color:var(--oro); }
+.hotspot.tipo-oggetto{ border-color:#7fd17f; }
+.hotspot.tipo-testo{ border-color:#8fb8e0; }
+.hotspot.tipo-piuma{
+  border-color:var(--oro);
+  color:var(--oro);
+  box-shadow:0 0 12px rgba(212,175,55,.6), 0 0 8px rgba(0,0,0,.5);
+}
+/* PREDISPOSIZIONE: quando le stanze avranno le immagini vere, le zone
+   restano cliccabili ma spariscono alla vista (configurazione.hotspotVisibili=false). */
+.hotspot.invisibile{
+  background:none; border:none; box-shadow:none;
+  border-radius:8px;
+  opacity:0;
+  cursor:default;   /* col mouse non deve tradire dov'è: niente manina a vuoto */
+}
+.hotspot.invisibile svg{ display:none; }
+.hotspot.invisibile:focus-visible{ opacity:1; outline:3px solid var(--oro); }
+
+/* ---------- FRECCE DI USCITA (navigazione sulla scena) ---------- */
+/* le frecce compaiono solo quando la navigazione è attivata dalla bussola */
+.freccia-uscita{
+  position:absolute;
+  transform:translate(-50%,-50%) scale(.6);
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  cursor:pointer;
+  z-index:5;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;
+}
+#app.nav-attiva .freccia-uscita{
+  opacity:1;
+  pointer-events:auto;
+  transform:translate(-50%,-50%) scale(1);
+  animation:freccia-pulsa 2.4s ease-in-out infinite;
+}
+/* triangolo pieno rosso con doppio contorno: marrone esterno, bianco interno */
+.freccia-uscita svg{
+  width:58px; height:58px;
+  display:block;
+  overflow:visible;          /* il contorno marrone è largo: non va tagliato dal viewBox */
+  filter:drop-shadow(0 0 10px rgba(216,52,42,.6)) drop-shadow(0 2px 4px rgba(0,0,0,.55));
+  transition:transform .15s ease;
+}
+.freccia-uscita:active svg{ transform:scale(.9) rotate(var(--rot,0deg)); }
+#app.nav-attiva .freccia-uscita.bloccata{ animation:none; }
+.freccia-uscita.bloccata svg{
+  filter:grayscale(1) brightness(.65) drop-shadow(0 2px 4px rgba(0,0,0,.55));
+}
+/* lampeggio lento: la freccia non sparisce mai del tutto, scende a 0.3 */
+@keyframes freccia-pulsa{
+  0%,100%{ opacity:.3; }
+  50%{ opacity:1; }
+}
+
+/* In modalità navigazione restano premibili SOLO le frecce e la bussola:
+   ogni altro elemento cliccabile sparisce. */
+#app.nav-attiva .hotspot{ opacity:0; pointer-events:none; transition:opacity .2s ease; }
+/* In navigazione sparisce la mappa, NON lo zaino: l'inventario resta aperto
+   e utilizzabile anche mentre ci si sposta fra le stanze. */
+#app.nav-attiva #btn-mappa{ opacity:0; pointer-events:none; transition:opacity .2s ease; }
+
+/* chi ha ridotto le animazioni di sistema non subisce lampeggi né voli */
+@media (prefers-reduced-motion: reduce){
+  #app.nav-attiva .freccia-uscita{ animation:none; opacity:1; }
+  #mappa-sfondo{ animation:none !important; }
+  /* il pan resta: è manipolazione diretta, non un effetto. Sparisce solo
+     lo scivolamento dei riposizionamenti automatici. */
+  #mappa-scena.pan-morbido{ transition:none !important; }
+  /* per sicurezza: il motore non le crea nemmeno, con le animazioni ridotte */
+  .icona-volante, #lente-tocco{ display:none !important; }
+  .freccia-uscita, .zaino-falda, .bussola-ago,
+  #pannello-inventario, #toast, .hotspot{ transition-duration:.01ms; }
+  /* la catena compare già aperta, senza srotolarsi */
+  .slot-inventario{ transition-duration:.01ms; transition-delay:0ms !important; }
+  /* la piuma dell'inventario c'è e basta, senza posarsi */
+  .inv-punti .inv-punto svg{ animation:none; }
+  /* quella del toast resta, ferma */
+  #toast-piuma svg{ animation:none; }
+  /* il segnalino sulla mappa c'è e basta, senza comparire con uno scatto */
+  .mappa-segnaposto-giocatore{ animation:none; }
+}
+
+/* ---------- OSCURAMENTO ---------- */
+#overlay-dim{
+  position:absolute; inset:0;
+  background:rgba(0,0,0,.55);
+  opacity:0; pointer-events:none;
+  transition:opacity .2s ease, background .2s ease;
+  z-index:6;
+}
+#app.dim #overlay-dim{ opacity:1; }
+/* la mappa oscura solo leggermente il livello dietro */
+#app.dim-leggero #overlay-dim{ opacity:1; background:rgba(0,0,0,.35); }
+/* durante toast/enigma/mappa la scena non è interagibile */
+#app.dim #mappa, #app.dim-leggero #mappa{ pointer-events:none; }
+
+/* ---------- PULSANTI FISSI (SVG, mai emoji) ---------- */
+#btn-inventario, #btn-nav, #btn-mappa{
+  position:absolute;
+  width:52px; height:52px;                 /* > 44px: target touch minimo */
+  padding:0;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 28%, #3a3a52, #16162a);
+  border:2px solid var(--oro);
+  color:var(--testo-chiaro);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  z-index:20;
+  box-shadow:0 2px 8px rgba(0,0,0,.6);
+  transition:background .2s ease, box-shadow .2s ease, transform .15s ease, opacity .2s ease;
+}
+#btn-inventario svg, #btn-nav svg, #btn-mappa svg{ width:26px; height:26px; }
+#btn-inventario:active, #btn-nav:active, #btn-mappa:active{ transform:scale(.92); }
+#btn-inventario:focus-visible, #btn-nav:focus-visible, #btn-mappa:focus-visible{
+  outline:3px solid var(--oro); outline-offset:3px;
+}
+
+/* Posizioni a L, tutte nella zona del pollice. Lo zaino è l'angolo:
+   la mappa gli sta a sinistra, la bussola sopra.
+
+              [bussola]
+     [mappa]  [zaino]
+
+   Il passo è 62px = 52 del pulsante + 10 di respiro. Gli scostamenti
+   passano da env(): con la barra gestuale, 10px dal fondo finiscono
+   sotto il dito di sistema. */
+#btn-inventario{
+  right:calc(10px + env(safe-area-inset-right));
+  bottom:calc(10px + env(safe-area-inset-bottom));
+}
+#btn-mappa{
+  right:calc(72px + env(safe-area-inset-right));
+  bottom:calc(10px + env(safe-area-inset-bottom));
+}
+#btn-nav{
+  right:calc(10px + env(safe-area-inset-right));
+  bottom:calc(72px + env(safe-area-inset-bottom));
+}
+
+/* lo zaino si apre: la falda ruota sul suo cardine */
+.zaino-falda{
+  fill:currentColor;
+  fill-opacity:.28;
+  transform-box:fill-box;
+  transform-origin:50% 100%;
+  transition:transform .22s ease-out, fill-opacity .22s ease-out;
+}
+/* -55deg e basta: oltre i 90deg il cardine (origine in basso) spinge la
+   falda fuori dal viewBox 24x24 dell'SVG (che ritaglia come ogni <svg>,
+   di default) — spariva quasi del tutto invece di "aprirsi". Niente
+   translateY: era lui a spingerla giù oltre il bordo. */
+#btn-inventario.aperto .zaino-falda{
+  transform:rotateX(-55deg);
+  fill-opacity:.08;
+}
+#btn-inventario.aperto{
+  background:radial-gradient(circle at 30% 28%, #4a4326, #221d0e);
+  box-shadow:0 0 14px rgba(212,175,55,.55), 0 2px 8px rgba(0,0,0,.6);
+}
+/* pulsazione quando qualcosa entra nello zaino */
+#btn-inventario.pulsa{ animation:zaino-pulsa .45s ease-out; }
+@keyframes zaino-pulsa{
+  0%{ transform:scale(1); box-shadow:0 0 0 rgba(212,175,55,.9), 0 2px 8px rgba(0,0,0,.6); }
+  45%{ transform:scale(1.14); box-shadow:0 0 20px rgba(212,175,55,.95), 0 2px 8px rgba(0,0,0,.6); }
+  100%{ transform:scale(1); box-shadow:0 2px 8px rgba(0,0,0,.6); }
+}
+
+/* bussola accesa (in rosso, come le frecce) quando la navigazione è attiva */
+#app.nav-attiva #btn-nav{
+  background:radial-gradient(circle at 35% 30%, #ff6b5e, var(--rosso-freccia));
+  border-color:rgba(255,255,255,.8);
+  box-shadow:0 0 18px rgba(216,52,42,.85), 0 2px 8px rgba(0,0,0,.6);
+}
+#app.nav-attiva #btn-nav .bussola-ago{ transform:rotate(45deg); transform-origin:50% 50%; }
+.bussola-ago{ transition:transform .25s ease-out; }
+
+/* con toast, enigma o mappa aperti restano solo la scena e lo zaino */
+#app.stato-toast #btn-nav, #app.stato-enigma #btn-nav, #app.stato-mappa #btn-nav,
+#app.stato-toast #btn-mappa, #app.stato-enigma #btn-mappa, #app.stato-mappa #btn-mappa{ display:none; }
+
+/* inventario aperto: restano bussola e zaino. La mappa sparisce perché la
+   catena occupa esattamente il suo posto. */
+#app.stato-inventario #btn-mappa{ opacity:0; pointer-events:none; }
+
+/* stanza `senzaComandi` (la sala dell'altare): resta la scena e basta —
+   né mappa, né bussola, né zaino. Da qui non si torna indietro. */
+#app.senza-comandi #btn-mappa,
+#app.senza-comandi #btn-nav,
+#app.senza-comandi #btn-inventario,
+#app.senza-comandi #pannello-inventario{ display:none; }
+
+/* ---------- INVENTARIO: catena di cerchi ---------- */
+/* Nessun pannello, nessuno sfondo, nessuna scritta: cinque cerchi per gli
+   oggetti e cinque punti per le piume, srotolati da sotto lo zaino verso
+   sinistra. L'unica decorazione è l'ombra dietro la catena.
+
+   Geometria: cerchi da 44px con 8 di gap → passo 52px, larghezza 252px.
+   Partendo da 70px dal bordo destro, su 375px ne restano 53 a sinistra.
+   I cerchi sono 44 e lo zaino 52: la catena è centrata sull'asse dello
+   zaino (bottom 14 = 10 + (52-44)/2), non allineata al fondo. */
+#pannello-inventario{
+  position:absolute;
+  right:calc(70px + env(safe-area-inset-right));
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  z-index:19;
+  display:flex; flex-direction:column; align-items:flex-end; gap:8px;
+  padding:0; background:none; border:none;
+  filter:drop-shadow(0 3px 8px rgba(0,0,0,.55));
+  /* chiusa: la tenda è arrotolata a destra */
+  clip-path:inset(0 0 0 100%);
+  pointer-events:none;
+  transition:clip-path .26s ease-out;
+}
+#pannello-inventario.aperto{
+  clip-path:inset(0 0 0 0);
+  pointer-events:auto;
+}
+/* clip-path e non width: animare la larghezza rifà il layout a ogni
+   fotogramma, e uno scaleX schiaccerebbe i cerchi. */
+
+.inv-catena, .inv-punti{ display:flex; gap:8px; }
+
+/* --- i cinque cerchi degli oggetti --- */
+.slot-inventario{
+  width:44px; height:44px; flex:0 0 auto;
+  border-radius:50%;
+  background:rgba(20,17,10,.55);
+  border:1.5px dashed rgba(212,175,55,.45);
+  display:flex; align-items:center; justify-content:center;
+  padding:0;
+  touch-action:none;
+  /* sfalsamento: la catena si srotola, non appare tutta insieme */
+  opacity:0; transform:translateX(10px);
+  transition:opacity .2s ease-out, transform .2s ease-out, border-color .2s ease;
+}
+#pannello-inventario.aperto .slot-inventario{ opacity:1; transform:translateX(0); }
+/* il ritardo lo scrive il motore in --ritardo (l'ultimo cerchio parte per
+   primo): così lo sfalsamento vale per qualunque maxSlotInventario */
+.slot-inventario{ transition-delay:var(--ritardo, 0ms); }
+
+.slot-inventario.pieno{
+  border-style:solid;
+  border-color:var(--oro);
+  background:radial-gradient(circle at 32% 28%, rgba(212,175,55,.28), rgba(30,25,12,.9));
+  cursor:grab;
+}
+.slot-inventario.pieno:active{ cursor:grabbing; transform:scale(.94); }
+.slot-inventario:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+.slot-inventario .slot-icona{ color:var(--oro); display:flex; }
+.slot-inventario .slot-icona svg{ width:24px; height:24px; }
+
+/* --- i cinque posti delle piume, uno sopra ogni cerchio ---
+   Vuoto: un punto. Raccolta: al posto del punto compare la piuma vera in
+   miniatura, la stessa icona che sta sulla scena. */
+.inv-punti .inv-punto{
+  width:44px; height:22px; flex:0 0 auto;    /* stesso passo dei cerchi */
+  display:flex; align-items:center; justify-content:center;
+  color:var(--oro);
+}
+.inv-punti .inv-punto::before{
+  content:'';
+  width:11px; height:11px; border-radius:50%;
+  background:rgba(20,17,10,.55);
+  border:1.5px solid rgba(212,175,55,.45);
+  transition:background .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+/* il punto sparisce: al suo posto c'è la piuma */
+.inv-punti .inv-punto.pieno::before{ display:none; }
+.inv-punti .inv-punto svg{
+  width:20px; height:20px; display:block;
+  filter:drop-shadow(0 0 5px rgba(212,175,55,.7));
+  animation:piuma-posa .22s ease-out;
+}
+@keyframes piuma-posa{
+  from{ opacity:0; transform:translateY(-3px) rotate(-12deg) scale(.7); }
+  to{ opacity:1; transform:none; }
+}
+.oggetto-drag-ghost{
+  position:fixed;
+  pointer-events:none;
+  z-index:100;
+  color:var(--oro);
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.6));
+  transform:translate(-50%,-50%);
+}
+.oggetto-drag-ghost svg{ width:34px; height:34px; }
+.dropzone-attiva{ outline:2px dashed var(--oro); outline-offset:3px; }
+.dropzone-hover{ outline:3px solid #7fd17f; background:rgba(127,209,127,.15); }
+
+/* ---------- ICONE VOLANTI ---------- */
+/* Piuma che vola nello zaino, piuma che ricade, lucchetto che vibra: nodi
+   temporanei creati dal motore sopra la scena. Qui il fondo comune; sotto,
+   una regola per ciascuna con la propria animazione e misura. */
+.icona-volante{
+  position:fixed;
+  left:0; top:0;
+  z-index:120;
+  pointer-events:none;
+  color:var(--oro);
+  filter:drop-shadow(0 0 8px rgba(212,175,55,.7));
+}
+.icona-volante svg{ width:40px; height:40px; display:block; }
+
+/* --- piuma che vola nello zaino --- */
+.piuma-volante{
+  filter:drop-shadow(0 0 10px rgba(212,175,55,.9));
+  animation:piuma-vola .78s cubic-bezier(.35,.05,.35,1) forwards;
+}
+/* sale ondeggiando come una piuma, poi rimpicciolisce verso lo zaino */
+@keyframes piuma-vola{
+  0%   { transform:translate(-50%,-50%) scale(.7)  rotate(0deg);   opacity:0; }
+  14%  { transform:translate(-50%,-50%) scale(1.3) rotate(-10deg); opacity:1; }
+  32%  { transform:translate(calc(-50% + 8px), calc(-50% - 18px)) scale(1.3) rotate(12deg); opacity:1; }
+  50%  { transform:translate(calc(-50% - 7px), calc(-50% - 30px)) scale(1.2) rotate(-8deg); opacity:1; }
+  100% { transform:translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,0px))) scale(.26) rotate(26deg); opacity:0; }
+}
+
+/* --- piuma che ricade (zaino piume pieno) --- */
+/* Non entra nello zaino: fa un saltello e torna dov'era. L'hotspot resta
+   nella stanza, quindi la si può riprendere dopo aver speso un indizio. */
+.piuma-caduta{ animation:piuma-cade .8s ease-out forwards; }
+.piuma-caduta svg{ width:34px; height:34px; }
+@keyframes piuma-cade{
+  0%   { transform:translate(-50%,-50%) scale(.8) rotate(0deg);    opacity:0; }
+  22%  { transform:translate(-50%, calc(-50% - 16px)) scale(1.05) rotate(-12deg); opacity:1; }
+  100% { transform:translate(-50%, calc(-50% + 10px)) scale(.85) rotate(14deg);  opacity:0; }
+}
+
+/* --- chiave trovata: gira e finisce nello zaino --- */
+/* Parte grande al centro della scena, fa due giri su se stessa e si rimpicciolisce
+   verso lo zaino. Più lenta delle altre: è una conquista, non un dettaglio. */
+.chiave-volante{
+  filter:drop-shadow(0 0 12px rgba(212,175,55,.9));
+  animation:chiave-gira 1.25s cubic-bezier(.4,.05,.35,1) forwards;
+}
+.chiave-volante svg{ width:64px; height:64px; }
+@keyframes chiave-gira{
+  0%   { transform:translate(-50%,-50%) scale(.4) rotate(0deg);      opacity:0; }
+  16%  { transform:translate(-50%,-50%) scale(1.15) rotate(160deg);  opacity:1; }
+  55%  { transform:translate(-50%,-50%) scale(1) rotate(560deg);     opacity:1; }
+  100% { transform:translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,0px)))
+                   scale(.22) rotate(720deg);                        opacity:0; }
+}
+
+/* --- lucchetto dell'enigma --- */
+/* Compare sul punto toccato e trema appena, come una serratura che non cede.
+   Poco movimento: qualche pixel a destra e a sinistra, sempre sul posto.
+   Finita la vibrazione si apre la schermata dell'enigma, che lo copre. */
+.lucchetto-chiuso{ animation:lucchetto-vibra .8s ease-out forwards; }
+/* più grande delle altre icone volanti: dentro c'è un punto interrogativo,
+   e a 40px si perdeva */
+.lucchetto-chiuso svg{ width:56px; height:56px; }
+@keyframes lucchetto-vibra{
+  /* il punto toccato è translate(-50%,-50%): da lì non si muove mai davvero */
+  0%   { transform:translate(-50%,-50%) scale(.8);                    opacity:0; }
+  14%  { transform:translate(-50%,-50%) scale(1);                     opacity:1; }
+  28%  { transform:translate(calc(-50% - 3px),-50%) rotate(-4deg);    opacity:1; }
+  40%  { transform:translate(calc(-50% + 3px),-50%) rotate(4deg);     opacity:1; }
+  52%  { transform:translate(calc(-50% - 2px),-50%) rotate(-3deg);    opacity:1; }
+  64%  { transform:translate(calc(-50% + 2px),-50%) rotate(2deg);     opacity:1; }
+  76%  { transform:translate(calc(-50% - 1px),-50%) rotate(-1deg);    opacity:1; }
+  100% { transform:translate(-50%,-50%) rotate(0deg);                 opacity:1; }
+}
+
+/* ---------- LENTE DI TOCCO ---------- */
+/* Compare piccola nel punto toccato e svanisce: dice "sto guardando lì".
+   È UN SOLO nodo riusato, non uno nuovo a ogni tocco. */
+#lente-tocco{
+  position:fixed;
+  left:0; top:0;
+  width:30px; height:30px;
+  margin:-15px 0 0 -15px;        /* centrata sul punto toccato */
+  z-index:15;                    /* sopra hotspot e frecce, sotto i pulsanti */
+  pointer-events:none;           /* il tocco arriva comunque a ciò che sta sotto */
+  opacity:0;
+  color:var(--oro);
+  filter:drop-shadow(0 0 5px rgba(0,0,0,.85));
+}
+#lente-tocco svg{ width:30px; height:30px; display:block; }
+@keyframes lente-tocco{
+  0%   { opacity:0;   transform:scale(.55) rotate(-14deg); }
+  30%  { opacity:.85; transform:scale(1)   rotate(0deg); }
+  100% { opacity:0;   transform:scale(1.1) rotate(6deg); }
+}
+
+/* ---------- TOAST ---------- */
+/* Unico riquadro di messaggio del gioco: click su cose ininfluenti,
+   indicazioni al giocatore, conferme, raccolta oggetti.
+   Centrato sullo schermo. Si chiude con un click DA QUALUNQUE PARTE. */
+#toast{
+  position:absolute; inset:0;
+  display:none;
+  align-items:center; justify-content:center;
+  padding:22px;
+  z-index:60;
+  pointer-events:none;
+}
+#toast.aperta{ display:flex; pointer-events:auto; }
+
+/* La cornice "pergamena" del gioco: fondo scuro, doppio bordo (marrone fuori,
+   nero dentro) e la stessa entrata in scala. La portano il toast e il
+   pannello della mappa — se cambia il vestito del gioco, si cambia qui. */
+#toast-inner, #pannello-mappa-inner{
+  position:relative;
+  width:100%;
+  color:var(--testo-chiaro);
+  border-radius:5px;
+  background:linear-gradient(180deg, #241a0f, #140e07);
+  border:3px solid var(--marrone-cornice);
+  box-shadow:
+    inset 0 0 0 3px #000,
+    inset 0 0 22px rgba(0,0,0,.75),
+    0 12px 34px rgba(0,0,0,.6);
+  animation:riquadro-entra .2s ease-out;
+}
+#toast-inner{
+  max-width:38ch;                 /* riga leggibile: ~65-75 caratteri max */
+  padding:20px 20px 18px;
+}
+@keyframes riquadro-entra{
+  from{ opacity:0; transform:scale(.96); }
+  to{ opacity:1; transform:scale(1); }
+}
+#toast-titolo{ font-weight:600; color:var(--oro); margin-bottom:8px; font-size:17px; letter-spacing:.02em; }
+#toast-testo{ font-size:15.5px; line-height:1.65; margin-bottom:16px; }
+/* il padding a destra tiene l'ultimo pulsante lontano dalla piuma */
+#toast-bottoni{ display:flex; gap:10px; flex-wrap:wrap; padding-right:34px; }
+#toast-bottoni:empty{ display:none; }
+#toast-bottoni button{
+  background:linear-gradient(180deg,#c9a961,#8a6d1f);
+  color:#1a1408;
+  border:none;
+  border-radius:6px;
+  padding:9px 16px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  min-height:38px;
+}
+#toast-bottoni button.secondario{
+  background:transparent;
+  color:var(--testo-chiaro);
+  border:1px solid rgba(255,255,255,.4);
+}
+#toast-bottoni button:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+/* Piuma in basso a destra al posto della vecchia scritta «tocca per
+   chiudere»: fluttua piano, quel tanto che basta a dire che il riquadro
+   è vivo e si può congedare. Non intercetta i tocchi: a chiudere è
+   l'intero #toast. */
+#toast-piuma{
+  position:absolute;
+  right:12px; bottom:10px;
+  width:22px; height:22px;
+  color:rgba(242,230,201,.42);
+  pointer-events:none;
+}
+#toast-piuma svg{
+  width:100%; height:100%; display:block;
+  animation:piuma-fluttua 2.6s ease-in-out infinite;
+}
+@keyframes piuma-fluttua{
+  0%,100%{ transform:translateY(0) rotate(0deg); }
+  50%    { transform:translateY(-6px) rotate(-6deg); }
+}
+
+/* ---------- PANNELLO MAPPA (sovraimpressione) ---------- */
+#pannello-mappa{
+  position:absolute; inset:0;
+  display:none;
+  align-items:center; justify-content:center;
+  padding:12px;
+  z-index:50;
+  pointer-events:none;
+}
+#pannello-mappa.aperto{ display:flex; pointer-events:auto; }
+#pannello-mappa-inner{
+  pointer-events:auto;
+  max-height:78%;                  /* più largo del toast: non ha max-width */
+  display:flex; flex-direction:column;
+  padding:16px 16px 18px;
+}
+/* la × dell'enigma: pasticca di 44px */
+#btn-enigma-close{
+  position:absolute;
+  width:44px; height:44px; border-radius:50%;
+  background:rgba(255,255,255,.08);
+  border:1.5px solid rgba(255,255,255,.45);
+  color:#fff; font-size:19px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+}
+#mappa-contenuto{
+  flex:1 1 auto;
+  min-height:180px;
+  overflow:auto;
+  display:flex; align-items:center; justify-content:center;
+  border:1px dashed rgba(212,175,55,.35);
+  border-radius:4px;
+  background:rgba(0,0,0,.28);
+  padding:18px;
+}
+#mappa-immagine-wrap{ position:relative; display:inline-block; max-width:100%; }
+#mappa-immagine-wrap img{ display:block; max-width:100%; height:auto; }
+#mappa-overlay{ position:absolute; inset:0; }
+/* stanza non ancora visitata: nebbia sopra il suo nome, già disegnato nel PNG */
+.mappa-nebbia{
+  position:absolute; transform:translate(-50%,-50%);
+  border-radius:6px;
+  backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px);
+  background:rgba(20,17,10,.4);
+}
+.mappa-segnaposto-giocatore{
+  position:absolute; transform:translate(-50%,-50%);
+  display:block; width:20px; height:20px; color:#fff;
+  filter:drop-shadow(0 0 3px rgba(255,255,255,.9));
+  animation:mappa-segnaposto-comparsa .25s ease-out;
+}
+.mappa-segnaposto-giocatore svg{ width:100%; height:100%; display:block; }
+@keyframes mappa-segnaposto-comparsa{
+  from{ opacity:0; transform:translate(-50%,-50%) scale(.4); }
+  to{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+}
+
+/* ---------- SCHERMATA ENIGMA (cornice, a tutto schermo) ---------- */
+/* Il contenuto lo disegna il modulo del puzzle: qui c'è solo il contorno. */
+#popup-enigma-wrap{
+  position:absolute; inset:0;
+  display:none;
+  z-index:30;
+  padding:0;
+  pointer-events:none;      /* lo zaino resta raggiungibile per il drag & drop */
+}
+#popup-enigma-wrap.aperto{ display:flex; }
+#popup-enigma{
+  position:relative;
+  pointer-events:auto;
+  width:100%;
+  height:100%;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(212,175,55,.10), transparent 62%),
+    linear-gradient(170deg,#1d2029,#0e1015);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  animation:enigma-entra .22s ease-out;
+}
+@keyframes enigma-entra{
+  from{ opacity:0; transform:scale(1.02); }
+  to{ opacity:1; transform:scale(1); }
+}
+#popup-enigma-titolo{
+  flex:0 0 auto;
+  /* spazio a sinistra per la ×, a destra per il pulsante aiuto */
+  padding:calc(20px + env(safe-area-inset-top)) 86px 14px 64px;
+  color:var(--oro);
+  font-weight:600;
+  font-size:19px;
+  letter-spacing:.02em;
+  border-bottom:2px solid rgba(212,175,55,.35);
+  background:linear-gradient(180deg, rgba(212,175,55,.10), transparent);
+}
+#popup-enigma-body{
+  flex:1;
+  overflow:auto;
+  padding:22px 20px calc(80px + env(safe-area-inset-bottom));  /* spazio per lo zaino */
+  color:var(--testo-chiaro);
+  font-size:15.5px;
+  line-height:1.65;
+}
+
+/* i pulsanti dell'enigma occupano gli stessi angoli di quelli fissi:
+   × dove sta la mappa, aiuto dove sta la bussola, zaino dov'è sempre */
+#btn-enigma-close, #btn-enigma-aiuto{
+  position:absolute;
+  padding:0;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  z-index:3;
+  transition:transform .15s ease, opacity .2s ease;
+}
+#btn-enigma-close{
+  top:calc(10px + env(safe-area-inset-top)); left:10px;
+  right:auto;
+}
+/* AIUTO: qui la catena delle piume non si vede, quindi il conteggio va
+   scritto. Due righe: la parola, e sotto piuma / quante ne hai. */
+#btn-enigma-aiuto{
+  top:calc(10px + env(safe-area-inset-top)); right:10px;
+  min-width:66px; min-height:48px;
+  padding:5px 10px 6px;
+  border-radius:12px;
+  flex-direction:column; gap:1px;
+  background:radial-gradient(circle at 30% 20%, #3a3a52, #16162a);
+  border:2px solid var(--oro);
+  color:var(--oro);
+  box-shadow:0 2px 8px rgba(0,0,0,.6);
+}
+#btn-enigma-aiuto .aiuto-parola{
+  font-size:11px; font-weight:700; letter-spacing:.12em; line-height:1;
+}
+#btn-enigma-aiuto .aiuto-riga{
+  display:flex; align-items:center; gap:1px;
+  font-size:13px; font-weight:600; line-height:1;
+  color:var(--testo-chiaro);
+}
+#btn-enigma-aiuto svg{ width:17px; height:17px; display:block; }
+#aiuto-piuma{ display:flex; }
+#btn-enigma-close:active, #btn-enigma-aiuto:active{ transform:scale(.92); }
+#btn-enigma-close:focus-visible, #btn-enigma-aiuto:focus-visible{ outline:3px solid var(--oro); outline-offset:3px; }
+/* spento resta leggibile: chi non ha mai visto una piuma deve comunque
+   sapere che l'aiuto esiste e che costa */
+#btn-enigma-aiuto:disabled{ opacity:.45; cursor:default; }
+/* l'indizio pagato con la piuma: resta sotto la testata, sempre visibile */
+#enigma-indizio{
+  flex:0 0 auto;
+  display:none;
+  margin:0;
+  padding:12px 20px;
+  font-size:14px; line-height:1.6;
+  color:#f0dfae;
+  background:rgba(212,175,55,.10);
+  border-bottom:1px solid rgba(212,175,55,.28);
+  animation:riquadro-entra .2s ease-out;
+}
+#enigma-indizio.visibile{ display:block; }
+
+/* --- mattoni condivisi da TUTTI i puzzle ---
+   Un modulo in /puzzles può usare queste due classi per l'enunciato e per la
+   riga di esito; tutto il resto del suo aspetto sta nel suo file CSS. */
+.enigma-domanda{
+  margin:0 0 20px;
+  font-size:16.5px;
+  line-height:1.7;
+  max-width:40ch;
+}
+.enigma-domanda em{ color:var(--oro); font-style:italic; }
+.enigma-esito{
+  margin-top:18px;
+  font-size:14.5px;
+  line-height:1.6;
+  min-height:22px;
+  max-width:40ch;
+}
+.enigma-esito.ko{ color:#e79a94; }
+.enigma-esito.ok{ color:#8fd08f; }
+
+/* lo zaino resta sopra l'enigma: serve al drag & drop */
+#pannello-inventario{ z-index:40; }
+#btn-inventario{ z-index:41; }

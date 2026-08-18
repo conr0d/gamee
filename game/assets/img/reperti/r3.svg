@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Anello d'oro, inciso">
+  <!-- REPERTO 3 — anello d'oro, INCISO (oro: sì, iscrizione: sì)
+       L'unico che ha entrambe le proprietà. Stesso oro del reperto 1 —
+       identico di proposito: due reperti d'oro devono leggersi come
+       "stesso materiale" — ma qui il castone porta glifi scavati. -->
+  <defs>
+    <linearGradient id="r3oro" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6df8e"/>
+      <stop offset="45%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#a8801d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- cerchio dell'anello -->
+  <circle cx="32" cy="38" r="18" fill="none" stroke="url(#r3oro)" stroke-width="7"/>
+  <circle cx="32" cy="38" r="18" fill="none" stroke="#f6df8e" stroke-width="1.4" opacity=".6"
+          stroke-dasharray="14 46" stroke-dashoffset="8"/>
+
+  <!-- castone ovale in alto -->
+  <ellipse cx="32" cy="17" rx="14" ry="11" fill="url(#r3oro)"/>
+  <ellipse cx="32" cy="17" rx="14" ry="11" fill="none" stroke="#8a6712" stroke-width="1.6"/>
+
+  <!-- ISCRIZIONE sul castone: cartiglio con glifi scavati -->
+  <rect x="22.5" y="10.5" width="19" height="13" rx="6.5" fill="none" stroke="#7a5b0f" stroke-width="1.5"/>
+  <g stroke="#6b4f0c" stroke-width="1.9" stroke-linecap="round" fill="none">
+    <path d="M26.5 14.2v5.2"/>
+    <path d="M30 19.4c0-2.9 1.2-4.4 3-4.4"/>
+    <path d="M36.6 14.2v5.2M36.6 14.2h2.2"/>
+  </g>
+</svg>

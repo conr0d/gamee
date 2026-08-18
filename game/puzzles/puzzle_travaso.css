@@ -1,0 +1,171 @@
+/* Travaso — classi prefissate .pz-, non escono da questo puzzle */
+
+.pz-trav-scena{
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:14px;
+  margin:6px 0 2px;
+}
+
+.pz-trav-colonna{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  width:92px;
+}
+
+/* il secchio: contenitore in terracotta, più stretto in alto */
+.pz-trav-secchio{
+  position:relative;
+  width:100%;
+  min-height:44px;                 /* target touch minimo, sotto ci va anche di più */
+  border:1.5px solid rgba(212,175,55,.45);
+  border-radius:6px 6px 14px 14px;
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.01));
+  overflow:hidden;
+  cursor:pointer;
+  padding:0;
+  transition:border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+.pz-trav-secchio:active:not(:disabled){ transform:scale(.97); }
+.pz-trav-secchio:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+.pz-trav-secchio:disabled{ cursor:default; }
+
+.pz-trav-secchio--tenuto{
+  border-color:var(--oro);
+  box-shadow:0 0 0 2px rgba(212,175,55,.35) inset, 0 0 10px rgba(212,175,55,.35);
+}
+
+/* il livello dell'acqua: ancorato in basso, l'altezza è la percentuale riempita */
+.pz-trav-livello{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  background:linear-gradient(180deg, #6fb3d8, #3d7fa8);
+  transition:height .35s cubic-bezier(.4,0,.2,1);
+  height:0%;
+}
+
+.pz-trav-valore{
+  font-size:13px; font-weight:700;
+  color:var(--testo-chiaro);
+  min-height:1.2em;
+}
+
+.pz-trav-azione{
+  width:100%;
+  min-height:36px;
+  padding:6px 8px;
+  font-size:12px; font-weight:600;
+  color:var(--testo-chiaro);
+  background:rgba(212,175,55,.12);
+  border:1px solid rgba(212,175,55,.4);
+  border-radius:7px;
+  cursor:pointer;
+  transition:background .15s ease, border-color .15s ease;
+}
+.pz-trav-azione:disabled{ opacity:.4; cursor:default; }
+.pz-trav-azione:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+
+/* il lavandino: vaschetta vera (orlo, vasca, scarico, tubo), non un'icona —
+   così si legge a colpo d'occhio anche senza etichetta */
+.pz-trav-lavandino{
+  width:100%;
+  padding:0;
+  border:none;
+  background:none;
+  display:flex; flex-direction:column; align-items:center;
+  cursor:pointer;
+  transition:filter .15s ease, transform .1s ease;
+}
+.pz-trav-lavandino:active:not(:disabled){ transform:scale(.97); }
+.pz-trav-lavandino:focus-visible{ outline:3px solid var(--oro); outline-offset:3px; }
+.pz-trav-lavandino:disabled{ cursor:default; }
+
+.pz-trav-lav-orlo{
+  width:88%;
+  height:7px;
+  border-radius:5px 5px 2px 2px;
+  background:linear-gradient(180deg, #cdbb99, #a8977a);
+}
+.pz-trav-lav-vasca{
+  position:relative;
+  width:80%;
+  height:46px;
+  border-radius:0 0 18px 18px;
+  background:linear-gradient(180deg, #f0e6d2, #cdbb99);
+  box-shadow:inset 0 6px 10px rgba(60,45,20,.28);
+  outline:2.5px solid transparent;
+  outline-offset:2px;
+  transition:outline-color .15s ease;
+}
+.pz-trav-lav-scarico{
+  position:absolute;
+  left:50%; bottom:11px;
+  transform:translateX(-50%);
+  width:24px; height:9px;
+  border-radius:50%;
+  background:#8a7a5c;
+  box-shadow:inset 0 2px 4px rgba(30,22,10,.5);
+}
+.pz-trav-lav-tappo{
+  position:absolute;
+  left:50%; bottom:13px;
+  transform:translateX(-50%);
+  width:9px; height:4px;
+  border-radius:50%;
+  background:#4a3f30;
+}
+.pz-trav-lav-tubo{
+  width:15px; height:18px;
+  background:linear-gradient(90deg, #a8977a, #cdbb99, #a8977a);
+  border-radius:0 0 3px 3px;
+}
+
+.pz-trav-lavandino--attivo .pz-trav-lav-vasca{
+  outline-color:var(--oro);
+}
+
+.pz-trav-vuoto{
+  min-height:36px;
+}
+
+.pz-trav-barra{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+}
+
+.pz-trav-mosse{
+  font-size:12px;
+  color:rgba(242,230,201,.6);
+  text-align:center;
+}
+
+.pz-trav-riga-bottoni{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.pz-trav-secondario{
+  min-height:40px;
+  padding:8px 14px;
+  font-size:12.5px; font-weight:600;
+  color:var(--testo-chiaro);
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:7px;
+  cursor:pointer;
+  transition:background .15s ease;
+}
+.pz-trav-secondario:disabled{ opacity:.35; cursor:default; }
+.pz-trav-secondario:focus-visible{ outline:3px solid var(--oro); outline-offset:2px; }
+
+@media (prefers-reduced-motion: reduce){
+  .pz-trav-secchio, .pz-trav-livello, .pz-trav-lavandino, .pz-trav-lav-vasca{ transition:none; }
+}
